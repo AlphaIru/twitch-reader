@@ -19,6 +19,7 @@ use tokio::sync::mpsc;
 pub enum Message {
     DM {
         username: String,
+        user_id: String,
         msg: String,
     }
 }
@@ -26,7 +27,7 @@ pub enum Message {
 impl Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Message::DM { username, msg } => write!(f, "username: {} msg: {}", username, msg),
+            Message::DM { username, user_id, msg } => write!(f, "username: {} user_id: {} msg: {}", username, user_id, msg),
         }
     }
 }
@@ -54,13 +55,14 @@ pub async fn run_twitch_listener(
         match &message {
             ServerMessage::Join(msg) => println!("Successfully joined: {}", msg.channel_login),
             ServerMessage::Notice(msg) => println!("Notice from Twitch: {}", msg.message_text),
-            _ => {} 
+           _ => {} 
         }
 
         if let ServerMessage::Privmsg(message) = message {
             // println!("Got a message: {}", message.message_text);
             let _ = tx.send(Message::DM {
                 username: message.sender.login.clone(),
+                user_id: message.sender.id,
                 msg: message.message_text.clone(),
             }).await;
         }
