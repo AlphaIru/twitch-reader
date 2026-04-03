@@ -17,6 +17,7 @@ mod twitch;
 use dotenvy::dotenv;
 use std::env;
 use tokio::sync::mpsc;
+use crate::twitch::Message;
 
 #[tokio::main]
 async fn main() {
@@ -30,7 +31,7 @@ async fn main() {
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
     // println!("Oauth Token: {}", oauth_token);
 
-    let (tx, mut rx) = mpsc::channel::<String>(32);
+    let (tx, mut rx) = mpsc::channel::<Message>(32);
 
     tokio::spawn(async move {
         twitch::run_twitch_listener(username, oauth_token, tx).await;
@@ -39,7 +40,7 @@ async fn main() {
     println!("Twitch Reader is running!");
 
     while let Some(msg) = rx.recv().await {
-        println!("Received message: {}", msg);
+        println!("{}", msg);
     }
 }
 

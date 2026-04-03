@@ -8,16 +8,33 @@
  *  
  */
 
+use std::fmt::Display;
+
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::{ClientConfig, SecureTCPTransport, TwitchIRCClient};
 use twitch_irc::message::ServerMessage;
 use tokio::sync::mpsc;
 
+#[derive(Debug, Clone)]
+pub enum Message {
+    DM {
+        username: String,
+        msg: String,
+    }
+}
+
+impl Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::DM { username, msg } => write!(f, "username: {} msg: {}", username, msg),
+        }
+    }
+}
 
 pub async fn run_twitch_listener(
     username: String,
     oauth_token: String,
-    tx: mpsc::Sender<String>,
+    tx: mpsc::Sender<Message>,
 )
 {
     let config = ClientConfig::new_simple(
@@ -42,7 +59,10 @@ pub async fn run_twitch_listener(
 
         if let ServerMessage::Privmsg(message) = message {
             // println!("Got a message: {}", message.message_text);
-            let _ = tx.send(message.message_text).await;
+            let _ = tx.send(Message::DM {
+                username: message.sender.login.clone(),
+                msg: message.message_text.clone(),
+            }).await;
         }
     } 
 }
