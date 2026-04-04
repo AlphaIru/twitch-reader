@@ -19,6 +19,9 @@ use tokio::sync::mpsc;
 mod twitch;
 use crate::twitch::Message;
 
+mod voice_creation;
+use crate::voice_creation::speak;
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -40,15 +43,18 @@ async fn main() {
     println!("Twitch Reader is running!");
 
     while let Some(msg) = rx.recv().await {
-        match msg {
-            Message::DM { username, user_id, msg } => 
-            {
-                println!("Username: {}", username);
-                println!("User_ID: {}", user_id);
-                println!("Message: {}", msg);
-            }
-        }
-        print!("\n");
+        // match msg {
+        //     Message::DM { username, user_id, msg } => 
+        //     {
+        //         println!("Username: {}", username);
+        //         println!("User_ID: {}", user_id);
+        //         println!("Message: {}", msg);
+        //     }
+        // }
+        print!("{}", msg);
+
+        let speak_text = format!("{}", msg);
+        speak(&speak_text);
     }
 }
 
