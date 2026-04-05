@@ -1,16 +1,15 @@
-/*
- * AlphaIru
- * Twitch Reader
- *
- * This is a simple program that would read out
- * Twitch chat messages to Open_JTalk in real-time.
- * 
- * main.rs
- *
- * This is the main entry point of the program and handles
- * the main loop of the program.
- *
- * */
+//! AlphaIru
+//! Twitch Reader
+//! 
+//! This is a simple program that would read out
+//! Twitch chat messages to Open_JTalk in real-time.
+//! 
+//! main.rs
+//!
+//! This is the main entry point of the program and handles
+//! the main loop of the program.
+//!
+
 
 use dotenvy::dotenv;
 use std::env;
@@ -22,10 +21,15 @@ use crate::twitch::Message;
 mod voice_creation;
 use crate::voice_creation::speak;
 
+mod word_process;
+use crate::word_process::{load_files, replace_words};
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
     
+    let (dict_map, dict_trie) = load_files();
+
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
     // println!("Username: {}", username);
@@ -42,18 +46,28 @@ async fn main() {
 
     println!("Twitch Reader is running!");
 
-    while let Some(msg) = rx.recv().await {
-        // match msg {
-        //     Message::DM { username, user_id, msg } => 
-        //     {
-        //         println!("Username: {}", username);
-        //         println!("User_ID: {}", user_id);
-        //         println!("Message: {}", msg);
-        //     }
-        // }
-        print!("{}", msg);
+    // dbg!(&dict);
 
-        let speak_text = format!("{}", msg);
+    while let Some(msg) = rx.recv().await {
+
+        let recv_msg = match msg {
+            Message::DM { username, user_id, msg } => 
+            {
+                // println!("Username: {}", username);
+                // println!("User_ID: {}", user_id);
+                // println!("Message: {}", msg);
+
+                format!("{}からメッセージ： {}", username, msg)
+            }
+        };
+
+        println!("{}", recv_msg);
+
+        let recv_msg = replace_words(recv_msg, &dict_map);
+
+        println!("Pasered msg: {}", recv_msg);
+
+        let speak_text = format!("{}", recv_msg);
         speak(&speak_text);
     }
 }
