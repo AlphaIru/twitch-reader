@@ -13,19 +13,22 @@
 
 use dotenvy::dotenv;
 use std::env;
+use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
+
 use tokio::sync::mpsc;
 
 mod twitch;
 use crate::twitch::Message;
 
 mod voice_creation;
-use crate::voice_creation::speak;
 
 mod word_process;
 use crate::word_process::{
     clean_text,
     load_files
 };
+
 
 #[tokio::main]
 async fn main() {
@@ -44,6 +47,9 @@ async fn main() {
     let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(32);
     let (voice_tx, mut voice_rx) = mpsc::channel::<String>(100);
 
+    let queue_counter = Arc::new(AtomicI32::new(0));
+    let queue_counter_playing = Arc::clone(&queue_counter);
+
     tokio::spawn(async move {
         twitch::run_twitch_listener(
             username,
@@ -54,7 +60,9 @@ async fn main() {
 
     tokio::spawn(async move {
         while let Some(msg) = voice_rx.recv().await {
-            speak(&msg).await;
+            // println!("Playing now: Queue counter: {}", queue_counter_playing.load(std::sync::atomic::Ordering::Relaxed));
+            voice_creation::speak(msg).await;
+            queue_counter_playing.fetch_add(-1, std::sync::atomic::Ordering::Relaxed);
         }
     });
 
@@ -63,6 +71,9 @@ async fn main() {
     // dbg!(&dict);
 
     while let Some(msg) = twitch_rx.recv().await {
+        queue_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        // println!("Queue counter: {}", queue_counter.load(std::sync::atomic::Ordering::Relaxed));
 
         let raw_msg = match msg {
             Message::DM { username, user_id, msg } => 
@@ -84,7 +95,7 @@ async fn main() {
         );
 
         // println!("Parsed msg: {}", recv_msg);
-
+        
         let _ = voice_tx.send(processed_msg).await;
     }
 }

@@ -14,7 +14,7 @@ use tokio::process::Command;
 use tokio::io::AsyncWriteExt;
 
 
-pub async fn speak(text: &String) {
+pub async fn speak(text: String) {
 
     let dict_path = env::var("OPEN_JTALK_DICT_PATH")
         .expect("Error: .env file not found or OPEN_JTALK_DICT_PATH must be set");
@@ -23,7 +23,7 @@ pub async fn speak(text: &String) {
         .expect("Error: .env file not found or OPEN_JTALK_VOICE_PATH must be set");
 
     let mut child = Command::new("open_jtalk")
-        .args(&[
+        .args([
             "-r", "1.25",  
             "-x", &dict_path,
             "-m", &voice_path,
