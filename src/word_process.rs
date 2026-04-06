@@ -12,12 +12,10 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::iter::Inspect;
 
 use regex::Regex;
 use std::io::BufRead;
 use trie_rs::{Trie, TrieBuilder};
-
 
 pub fn load_files() -> (HashMap<String, String>, Trie<u8>) {
     let mut dict_map = HashMap::new();
@@ -50,6 +48,41 @@ pub fn load_files() -> (HashMap<String, String>, Trie<u8>) {
     (dict_map, dict_trie)
 }
 
+pub fn url_shouryaku(text: String) -> String {
+    let email_re = Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap();
+    let url_re = Regex::new(r"https?:[//\w/:%#\$&\?\(\)~\.=\+\-]+").unwrap();
+
+    let text = email_re.replace_all(&text, "メール省略");
+    url_re.replace_all(&text, "URL省略").to_string()
+}
+
+pub fn to_zenkaku_punctuation(input: String) -> String {
+    input.chars().map( |c| {
+        match c {
+            '!' => '！',
+            '?' => '？',
+            ',' => '、',
+            '.' => '。',
+            ':' => '：',
+            ';' => '；',
+            '(' => '（',
+            ')' => '）',
+            _ => c,
+        }
+
+    }).collect()
+}
+
+pub fn to_hankaku_alphabets(input: String) -> String {
+    input.chars().map( |c| {
+        let code = c as u32;
+        if (0xFF01..=0xFF5E).contains(&code) {
+            std::char::from_u32(code - 0xFEE0).unwrap_or(c)
+        } else {
+            c
+        }
+    }).collect()
+}
 
 pub fn replace_words(input: String, map: &HashMap<String, String>) -> String {
     let re = Regex::new(r"[A-Za-z]+").unwrap();
@@ -71,32 +104,57 @@ pub fn replace_words(input: String, map: &HashMap<String, String>) -> String {
     result.split_whitespace().collect::<Vec<_>>().join("")
 }
 
-/*
-pub fn replace_words(input: String, map: &HashMap<String, String>) -> String {
-    let parts = input.split_whitespace()
-        .map(|v| v.trim().to_lowercase())
-        .map(|v| {
-            if v.is_ascii() {
-                match map.get(&v) {
-                    Some(kana) => kana.clone(),
-                    None => {
-                        if v.len() >= 3 {
-                            append_unknown_word(&v);
-                        }
-                        v.to_string()
-                    }
-                // map.get(&v).cloned().unwrap_or(v.to_string())
-                }
-            } else {
-                v.to_string()
-            }
-        })
-    .collect::<Vec<_>>();
 
-    parts.join(" ")
+pub fn hear_aid(text: String) -> String {
+    text.replace('~', "ー")
+        .replace('～', "ー")
+        .replace('-', "ー")
+        .replace('|', " ")
+        .replace('…', "、")
 }
-*/
 
+
+pub fn replace_with_trie(
+    word: &str,
+    map: &HashMap<String, String>,
+    trie: &Trie<u8>,
+) -> String {
+    let mut result = String::new();
+    let mut cursor = 0;
+    let bytes = word.as_bytes();
+
+    if word.trim() == "" {
+        return word.to_string();
+    }
+
+    while cursor < bytes.len() {
+        let remaining = &word[cursor..];
+        let mut longest_match = None;
+
+        for prefix in trie.common_prefix_search(remaining) {
+            if let Ok(s) = String::from_utf8(prefix) {
+                longest_match = Some(s);
+            }
+        }
+
+        if let Some(matched) = longest_match {
+            if let Some(kana) = map.get(&matched) {
+                result.push_str(kana);
+            }
+            else {
+                result.push_str(&matched);
+            }
+            cursor += matched.len();
+        }
+        else {
+            let next_char = word[cursor..].chars().next().unwrap();
+            result.push(next_char);
+            cursor += next_char.len_utf8();
+        }
+    }
+
+    result
+}
 
 pub fn append_unknown_word(word: &str) {
     let mut file = OpenOptions::new()
@@ -111,3 +169,17 @@ pub fn append_unknown_word(word: &str) {
     }
 }
 
+pub fn clean_text(
+    recv_msg: String,
+    dict_map: &HashMap<String, String>,
+    dict_trie: &Trie<u8>
+) -> String {
+    let recv_msg = url_shouryaku(recv_msg);
+    let recv_msg = hear_aid(recv_msg);
+    let recv_msg = to_zenkaku_punctuation(recv_msg);
+    let recv_msg = to_hankaku_alphabets(recv_msg);
+    let recv_msg = replace_words(recv_msg, &dict_map);
+    let recv_msg = replace_with_trie(&recv_msg, &dict_map, &dict_trie); 
+
+    recv_msg
+}

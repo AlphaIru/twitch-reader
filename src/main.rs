@@ -12,6 +12,7 @@
 
 
 use dotenvy::dotenv;
+use tokio::net::unix::pipe::Receiver;
 use std::env;
 use tokio::sync::mpsc;
 
@@ -22,7 +23,10 @@ mod voice_creation;
 use crate::voice_creation::speak;
 
 mod word_process;
-use crate::word_process::{load_files, replace_words};
+use crate::word_process::{
+    clean_text,
+    load_files
+};
 
 #[tokio::main]
 async fn main() {
@@ -63,7 +67,11 @@ async fn main() {
 
         println!("{}", recv_msg);
 
-        let recv_msg = replace_words(recv_msg, &dict_map);
+        let recv_msg = clean_text(
+            recv_msg, 
+            &dict_map,
+            &dict_trie
+        );
 
         println!("Pasered msg: {}", recv_msg);
 

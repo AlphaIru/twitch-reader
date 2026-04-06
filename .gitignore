@@ -21,5 +21,6 @@ target
 #.idea/
 
 .env
+unknown.csv
 target/
 open_jtalk/
