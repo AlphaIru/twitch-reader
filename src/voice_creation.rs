@@ -7,12 +7,14 @@
 //!
 
 
-use std::process::{Command, Stdio};
-use std::io::Write;
+use std::process::Stdio;
 use std::env;
 
+use tokio::process::Command;
+use tokio::io::AsyncWriteExt;
 
-pub fn speak(text: &str) {
+
+pub async fn speak(text: &String) {
 
     let dict_path = env::var("OPEN_JTALK_DICT_PATH")
         .expect("Error: .env file not found or OPEN_JTALK_DICT_PATH must be set");
@@ -22,6 +24,7 @@ pub fn speak(text: &str) {
 
     let mut child = Command::new("open_jtalk")
         .args(&[
+            "-r", "1.25",  
             "-x", &dict_path,
             "-m", &voice_path,
             "-ow", "/dev/stdout",
@@ -43,15 +46,24 @@ pub fn speak(text: &str) {
     */
 
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(text.as_bytes()).ok();
+        let _ = stdin.write_all(text.as_bytes()).await;
     }
 
 
     if let Some(stdout) = child.stdout.take() {
-        Command::new("pw-play")
-            .arg("-")
-            .stdin(stdout)
+        let std_stdout: Stdio = stdout.try_into().expect("Failed to get stdout");
+
+        let status = Command::new("paplay")
+            .arg("--device=TwitchReader")
+            .arg("--raw")                
+            .arg("--channels=1")
+            .arg("--rate=48000")
+            .stdin(Stdio::from(std_stdout))
             .status()
-            .ok();
+            .await;
+
+        if let Err(e) = status {
+            println!("Error during playback: {}", e);
+        }
     }
 }
