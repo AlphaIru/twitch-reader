@@ -12,7 +12,6 @@
 
 
 use dotenvy::dotenv;
-use tokio::net::unix::pipe::Receiver;
 use std::env;
 use tokio::sync::mpsc;
 
@@ -42,41 +41,51 @@ async fn main() {
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
     // println!("Oauth Token: {}", oauth_token);
 
-    let (tx, mut rx) = mpsc::channel::<Message>(32);
+    let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(32);
+    let (voice_tx, mut voice_rx) = mpsc::channel::<String>(100);
 
     tokio::spawn(async move {
-        twitch::run_twitch_listener(username, oauth_token, tx).await;
+        twitch::run_twitch_listener(
+            username,
+            oauth_token,
+            twitch_tx
+        ).await;
+    });
+
+    tokio::spawn(async move {
+        while let Some(msg) = voice_rx.recv().await {
+            speak(&msg).await;
+        }
     });
 
     println!("Twitch Reader is running!");
 
     // dbg!(&dict);
 
-    while let Some(msg) = rx.recv().await {
+    while let Some(msg) = twitch_rx.recv().await {
 
-        let recv_msg = match msg {
+        let raw_msg = match msg {
             Message::DM { username, user_id, msg } => 
             {
                 // println!("Username: {}", username);
                 // println!("User_ID: {}", user_id);
                 // println!("Message: {}", msg);
 
-                format!("{}からメッセージ： {}", username, msg)
+                format!("{}： {}", username, msg)
             }
         };
 
-        println!("{}", recv_msg);
+        println!("{}", raw_msg);
 
-        let recv_msg = clean_text(
-            recv_msg, 
+        let processed_msg = clean_text(
+            raw_msg, 
             &dict_map,
             &dict_trie
         );
 
-        println!("Pasered msg: {}", recv_msg);
+        // println!("Parsed msg: {}", recv_msg);
 
-        let speak_text = format!("{}", recv_msg);
-        speak(&speak_text);
+        let _ = voice_tx.send(processed_msg).await;
     }
 }
 
