@@ -7,3 +7,6 @@ edition = "2024"
 twitch-irc = "5.0"
 tokio = { version = "1", features = ["full"] }
 dotenvy = "0.15"
+trie-rs = "0.4.2"
+regex = "1.12.3"
+

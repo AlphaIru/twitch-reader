@@ -1,12 +1,10 @@
-/*
- * AlphaIru
- * Twitch Reader
- *
- * twitch.rs
- * 
- * This is the module for Twitch API related functions.
- *  
- */
+//! AlphaIru
+//! Twitch Reader
+//!
+//! twitch.rs
+//! 
+//! This is the module for Twitch API related functions.
+//!
 
 use std::fmt::Display;
 

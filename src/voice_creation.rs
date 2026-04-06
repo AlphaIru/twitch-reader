@@ -1,12 +1,10 @@
-/*
- * AlphaIru
- * Twitch Reader
- *
- * voice_creation.rs 
- *
- * This is the module for voice creation related functions.
- *
- * */
+//! AlphaIru
+//! Twitch Reader
+//!
+//! voice_creation.rs 
+//!
+//! This is the module for voice creation related functions.
+//!
 
 
 use std::process::{Command, Stdio};
