@@ -1,4 +1,4 @@
- //! AlphaIru
+//! AlphaIru
 //! Twitch Reader
 //! 
 //! This is a simple program that would receive
@@ -36,7 +36,7 @@ pub struct ChatPayload {
 async fn main() {
 
     dotenv().ok();
-    
+
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
     // println!("Username: {}", username);
@@ -68,10 +68,23 @@ async fn main() {
     if enable_yomi {
         let mut _rx_for_yomi = broadcast_tx.subscribe();
         let voice_counter_for_yomi = Arc::clone(&voice_queue_counter);
+
+        let query_policy = env::var("QUEUE_DROP_POLICY").unwrap_or_else(|_| "drop_new".to_string());
+
         tokio::spawn(async move {
             println!("Yomi (Voice) is active.");
-            while let Ok(payload) = _rx_for_yomi.recv().await {
-                if payload.processed_msg.trim() == "" {
+
+            while let Ok(mut payload) = _rx_for_yomi.recv().await {
+
+                if query_policy == "drop_old" {
+                    while let Ok(next_payload) = _rx_for_yomi.try_recv(){
+                        println!("Queue is full! Skipped Reading for {} ({}): {}", payload.username, payload.user_id, payload.msg);
+                        voice_counter_for_yomi.fetch_add(-1, Ordering::Relaxed);
+                        payload= next_payload;
+                    }
+                }
+
+                if payload.processed_msg.trim().is_empty() {
                     voice_counter_for_yomi.fetch_add(-1, Ordering::Relaxed);
                     continue;
                 }

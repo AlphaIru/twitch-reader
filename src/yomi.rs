@@ -34,12 +34,8 @@ pub async fn run_yomi_hub(
 ) {
 
     let (dict_map, dict_trie) = load_files();
-
     let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(100);
-    // let (voice_tx, mut voice_rx) = mpsc::channel::<String>(100);
 
-    // let queue_counter = Arc::new(AtomicI32::new(0));
-    // let queue_counter_playing = Arc::clone(&queue_counter);
 
     // Turn on Twitch Listener task
     tokio::spawn(async move {
@@ -50,6 +46,7 @@ pub async fn run_yomi_hub(
         ).await;
     });
 
+
     let max_chars: usize = env::var("MAX_CHAR_COUNT")
         .unwrap_or_else(|_| "100".to_string())
         .parse()
@@ -59,19 +56,50 @@ pub async fn run_yomi_hub(
         panic!("MAX_CHAR_COUNT must be greater than 0!");
     }
 
+
+    let max_queue: i32 = env::var("MAX_QUEUE_COUNT")
+        .unwrap_or_else(|_| "100".to_string())
+        .parse()
+        .unwrap_or(100);
+
+    if max_queue <= 0 {
+        panic!("MAX_QUEUE must be greater than 0!");
+    }
+
+    let max_queue_ciel = max_queue * 2;
+
+    let drop_policy = env::var("QUEUE_DROP_POLICY")
+        .unwrap_or_else(|_| "drop_new".to_string());
+
     let mut last_user_id: Option<String> = None;
 
     println!("Twitch Reader is running!");
 
     // Recv loop
     while let Some(msg) = twitch_rx.recv().await {
-        voice_queue_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
+        let current_queue_num = voice_queue_counter.load(std::sync::atomic::Ordering::SeqCst);
         let Message::DM { username, user_id, msg } = msg;
-        let display_text = if last_user_id.as_deref() == Some(&user_id[..]) {
-            msg.clone()
+
+        let should_process = if drop_policy == "drop_old" {
+            current_queue_num < max_queue_ciel
         }
         else {
+            current_queue_num < max_queue
+        };
+
+        if !should_process {
+            println!("Queue is full! ({} / {}): Skipped Reading for {}", current_queue_num, max_queue, msg);
+            continue;
+        }
+
+
+        voice_queue_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+        println!("{}, {}", max_queue, current_queue_num);
+
+        let display_text = if last_user_id.as_deref() == Some(&user_id) {
+            msg.clone()
+        } else {
             let f = format!("{}： {}", username, msg);
             last_user_id = Some(user_id.clone());
             f

@@ -1,5 +1,13 @@
 # RENAME THIS FILE TO .env
 
+# If you want to use the OpenJTalk voice, set this to true
+ENABLE_YOMI=false
+
+# If you want to use the NicoNico HTML overlay, set this to true
+ENABLE_NICO=false
+
+# ---------------------------------
+
 # Note: This is your twitch id not your bot's id
 TWITCH_CLIENT_ID=your_client_id
 
@@ -17,3 +25,6 @@ MAX_CHAR_COUNT=100
 
 # Note: This is the max queue count
 MAX_QUEUE_COUNT=100
+
+# Note: This is the queue drop policy, (either choose "drop_old" or "drop_new")
+QUEUE_DROP_POLICY=drop_new
