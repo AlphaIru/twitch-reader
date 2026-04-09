@@ -67,6 +67,9 @@ pub fn to_zenkaku_punctuation(input: String) -> String {
             ';' => '；',
             '(' => '（',
             ')' => '）',
+            '+' => '＋',
+            '-' => '－',
+            '=' => '＝',
             _ => c,
         }
 
@@ -114,6 +117,13 @@ pub fn hear_aid(text: String) -> String {
 }
 
 
+pub fn remove_garbage(text: String) -> String {
+    // 読み上げに不要な記号（| や連続する記号など）を削除
+    let re = Regex::new(r"[|｜_＿\[\]【】]").unwrap();
+    re.replace_all(&text, "").to_string()
+}
+
+
 pub fn replace_with_trie(
     word: &str,
     map: &HashMap<String, String>,
@@ -140,6 +150,7 @@ pub fn replace_with_trie(
         if let Some(matched) = longest_match {
             if let Some(kana) = map.get(&matched) {
                 result.push_str(kana);
+
             }
             else {
                 result.push_str(&matched);
@@ -174,12 +185,22 @@ pub fn clean_text(
     dict_map: &HashMap<String, String>,
     dict_trie: &Trie<u8>
 ) -> String {
-    let recv_msg = url_shouryaku(recv_msg);
-    let recv_msg = hear_aid(recv_msg);
-    let recv_msg = to_zenkaku_punctuation(recv_msg);
-    let recv_msg = to_hankaku_alphabets(recv_msg);
-    let recv_msg = replace_words(recv_msg, &dict_map);
-    let recv_msg = replace_with_trie(&recv_msg, &dict_map, &dict_trie); 
+    let mut recv_msg = url_shouryaku(recv_msg);
+    recv_msg = hear_aid(recv_msg);
+    recv_msg = to_zenkaku_punctuation(recv_msg);
+    recv_msg = to_hankaku_alphabets(recv_msg);
+    recv_msg = replace_words(recv_msg, &dict_map);
+    recv_msg = replace_with_trie(&recv_msg, &dict_map, &dict_trie); 
+    recv_msg = remove_garbage(recv_msg);
 
-    recv_msg
+    recv_msg.trim().to_string()
+}
+
+
+pub fn limit_length(raw_msg: String, max_length: usize) -> String {
+    if raw_msg.len() <= max_length {
+        return raw_msg;
+    }
+    let fmt_msg = format!("{}、以下略。", raw_msg.chars().take(max_length).collect::<String>());
+    fmt_msg
 }
