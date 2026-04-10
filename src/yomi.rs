@@ -84,7 +84,14 @@ pub async fn run_yomi_hub(
     while let Some(msg) = twitch_rx.recv().await {
         let current_queue_num = voice_queue_counter.load(std::sync::atomic::Ordering::SeqCst);
         
-        let Message::DM { username, user_id, msg, color, .. } = msg;
+        let Message::DM { 
+            username,
+            user_id,
+            msg,
+            color,
+            is_mod,
+            is_broadcaster
+        } = msg;
 
         let should_process = if drop_policy == "drop_old" {
             current_queue_num < max_queue_ciel
@@ -126,7 +133,8 @@ pub async fn run_yomi_hub(
             msg: msg.clone(),
             processed_msg: processed,
             color: color.clone(),
-            ..Default::default()
+            is_mod,
+            is_broadcaster,
         };
 
         let _ = broadcast_tx.send(payload);

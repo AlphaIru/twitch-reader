@@ -90,18 +90,26 @@ pub async fn run_twitch_listener(
             // ServerMessage::Notice(msg) => println!("Notice from Twitch: {}", msg.message_text),
            _ => {} 
         }
-        let color = message.source().tags.0.get("color")
-            .cloned()
-            .flatten()
-            .unwrap_or_else(|| "#FFFFFF".to_string());
+        // let color = message.source().tags.0.get("color")
+        //     .cloned()
+        //     .flatten()
+        //     .unwrap_or_else(|| "#FFFFFF".to_string());
 
-        let is_mod = message.source().tags.0.get("mod").and_then(|v| v.as_ref()).map(|v| v == "1").unwrap_or(false);
+        // let is_mod = message.source().tags.0.get("mod").and_then(|v| v.as_ref()).map(|v| v == "1").unwrap_or(false);
 
-        let is_broadcaster = message.source().tags.0.get("badges").and_then(|v| v.as_ref())
-        .map(|v| v.contains("broadcaster/1")).unwrap_or(false);
+        // let is_broadcaster = message.source().tags.0.get("badges").and_then(|v| v.as_ref())
+        // .map(|v| v.contains("broadcaster/1")).unwrap_or(false);
 
         if let ServerMessage::Privmsg(message) = message {
             // println!("Got a message: {}", message.message_text);
+
+            let color = message.name_color
+                .map(|v| format!("{}", v))
+                .unwrap_or_else(|| "#FFFFFF".to_string());
+
+            let is_mod = message.badges.iter().any(|badge| badge.name == "moderator");
+            let is_broadcaster = message.badges.iter().any(|badge| badge.name == "broadcaster");
+
             let _ = tx.send(Message::DM {
                 username: message.sender.login.clone(),
                 user_id: message.sender.id,
