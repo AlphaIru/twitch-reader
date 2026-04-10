@@ -19,13 +19,32 @@ pub enum Message {
         username: String,
         user_id: String,
         msg: String,
+        color: String,
+        is_mod: bool,        
+        is_broadcaster: bool,
     }
 }
 
 impl Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Message::DM { username, user_id, msg } => write!(f, "username: {} user_id: {} msg: {}", username, user_id, msg),
+            Message::DM {
+                username,
+                user_id,
+                msg,
+                color,
+                is_mod,
+                is_broadcaster
+            } => write!(
+                f,
+                "username: {} user_id: {} msg: {} color: {} is_mod: {} is_broadcaster: {}",
+                username,
+                user_id,
+                msg,
+                color,
+                is_mod,
+                is_broadcaster
+            ),
         }
     }
 }
@@ -45,16 +64,41 @@ pub async fn run_twitch_listener(
 
     client.join(username.clone()).expect("Failed to join channel");
 
-    println!("Joining chat in channel \"{}\"!", username);
-    println!("Twitch listener started!");
+    let _ = tx.send(Message::DM {
+        username: "SYSTEM".to_string(),
+        user_id: "0".to_string(),
+        msg: format!("Joining chat in channel \"{}\"", username),
+        color: "#FFFF66".to_string(),
+        is_mod: false,
+        is_broadcaster: false,
+    }).await;
+
+    let _ = tx.send(Message::DM {
+        username: "SYSTEM".to_string(),
+        user_id: "0".to_string(),
+        msg: format!("Twitch Listener started!"),
+        color: "#FFFF66".to_string(),
+        is_mod: false,
+        is_broadcaster: false,
+    });
+    
 
     while let Some(message) = incoming_messages.recv().await {
 
         match &message {
-            ServerMessage::Join(msg) => println!("Successfully joined: {}", msg.channel_login),
-            ServerMessage::Notice(msg) => println!("Notice from Twitch: {}", msg.message_text),
+            // ServerMessage::Join(msg) => println!("Successfully joined: {}", msg.channel_login),
+            // ServerMessage::Notice(msg) => println!("Notice from Twitch: {}", msg.message_text),
            _ => {} 
         }
+        let color = message.source().tags.0.get("color")
+            .cloned()
+            .flatten()
+            .unwrap_or_else(|| "#FFFFFF".to_string());
+
+        let is_mod = message.source().tags.0.get("mod").and_then(|v| v.as_ref()).map(|v| v == "1").unwrap_or(false);
+
+        let is_broadcaster = message.source().tags.0.get("badges").and_then(|v| v.as_ref())
+        .map(|v| v.contains("broadcaster/1")).unwrap_or(false);
 
         if let ServerMessage::Privmsg(message) = message {
             // println!("Got a message: {}", message.message_text);
@@ -62,6 +106,9 @@ pub async fn run_twitch_listener(
                 username: message.sender.login.clone(),
                 user_id: message.sender.id,
                 msg: message.message_text.clone(),
+                color,
+                is_mod,
+                is_broadcaster
             }).await;
         }
     } 

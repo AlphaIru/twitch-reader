@@ -73,12 +73,18 @@ pub async fn run_yomi_hub(
 
     let mut last_user_id: Option<String> = None;
 
-    println!("Twitch Reader is running!");
+    let _ = broadcast_tx.send(ChatPayload {
+        username: "SYSTEM".to_string(),
+        user_id: "0".to_string(),
+        msg: format!("Twitch Reader is running!"),
+        ..Default::default()
+    });
 
     // Recv loop
     while let Some(msg) = twitch_rx.recv().await {
         let current_queue_num = voice_queue_counter.load(std::sync::atomic::Ordering::SeqCst);
-        let Message::DM { username, user_id, msg } = msg;
+        
+        let Message::DM { username, user_id, msg, color, .. } = msg;
 
         let should_process = if drop_policy == "drop_old" {
             current_queue_num < max_queue_ciel
@@ -88,14 +94,16 @@ pub async fn run_yomi_hub(
         };
 
         if !should_process {
-            println!("Queue is full! ({} / {}): Skipped Reading for {}", current_queue_num, max_queue, msg);
+            let _ = broadcast_tx.send(ChatPayload {
+                username: "SYSTEM".to_string(),
+                user_id: "0".to_string(),
+                msg: format!("Queue is full! ({} / {}): Skipped Reading for {}", current_queue_num, max_queue, msg),
+                ..Default::default()
+            });
             continue;
         }
 
-
         voice_queue_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
-        println!("{}, {}", max_queue, current_queue_num);
 
         let display_text = if last_user_id.as_deref() == Some(&user_id) {
             msg.clone()
@@ -116,7 +124,9 @@ pub async fn run_yomi_hub(
             username: username.clone(),
             user_id: user_id.clone(),
             msg: msg.clone(),
-            processed_msg: processed
+            processed_msg: processed,
+            color: color.clone(),
+            ..Default::default()
         };
 
         let _ = broadcast_tx.send(payload);

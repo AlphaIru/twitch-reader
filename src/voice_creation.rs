@@ -34,16 +34,6 @@ pub async fn speak(text: String) {
         .spawn()
         .expect("Failed to start open_jtalk");
     
-    /*
-    match(child.stdin.take()) {
-        Ok(mut stdin) => {
-            stdin.write_all(text.as_bytes()).ok();
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-        }
-    }
-    */
 
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(text.as_bytes()).await;
