@@ -15,7 +15,7 @@
 use std::env;
 use dotenvy::dotenv;
 use std::sync::Arc;
-use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicUsize;
 
 use tokio::sync::broadcast;
 
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if enable_yomi {
         let rx_for_yomi = broadcast_tx.subscribe();
         let tx_for_yomi = broadcast_tx.clone();
-        let voice_queue_counter = Arc::new(AtomicI32::new(0));
+        let voice_queue_counter = Arc::new(AtomicUsize::new(0));
 
         tokio::spawn(async move {
             yomi::start_reading(

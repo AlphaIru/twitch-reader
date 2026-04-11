@@ -13,7 +13,7 @@
 
 use std::env;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::sync::{broadcast, mpsc};
 
@@ -26,26 +26,44 @@ use crate::word_process::{
 use crate::voice_creation::speak;
 
 
+pub fn get_env_variables() -> (bool, usize, usize, String) {
+    let verbose = env::var("VERBOSE_LOG").unwrap_or_else(|_| "false".to_string()) == "true";
+
+    let max_chars: usize = env::var("MAX_CHAR_COUNT")
+        .unwrap_or_else(|_| "100".to_string())
+        .parse()
+        .unwrap_or(100);
+    let max_queue: usize = env::var("MAX_QUEUE_COUNT")
+        .unwrap_or_else(|_| "100".to_string())
+        .parse()
+        .unwrap_or(100);
+    
+    let query_policy = env::var("QUEUE_DROP_POLICY").unwrap_or_else(|_| "drop_new".to_string());
+
+    (verbose, max_chars, max_queue, query_policy)
+} 
+
+
 pub async fn should_process_msg(
     rx: &mut broadcast::Receiver<ChatPayload>,
     tx: &broadcast::Sender<ChatPayload>,
     payload: &mut ChatPayload,
-    queue_counter: &Arc<AtomicI32>,
-    max_queue: i32,
+    queue_counter: &Arc<AtomicUsize>,
+    verbose: bool,
+    max_queue: usize,
     query_policy: String
 ) -> bool {
-    if queue_counter.load(Ordering::SeqCst) < max_queue {
-        return true;
-    }
-    
     if query_policy != "drop_old" {
-        let _ = tx.send(ChatPayload {
+        
+        if verbose {
+            let _ = tx.send(ChatPayload {
                 username: "[SYSTEM]".to_string(),
                 user_id: "0".to_string(),
                 msg: format!("Queue is full. Skipped {}'s message.", payload.username).to_string(),
                 color: "#FFFF66".to_string(),
                 ..Default::default()
-        });
+            });
+        }
         return false;
     }
 
@@ -54,13 +72,15 @@ pub async fn should_process_msg(
             if next_payload.username == "[SYSTEM]" || next_payload.username == "[SKIP]" {
                 continue;
             }
-            let _ = tx.send(ChatPayload {
-                username: "[SYSTEM]".to_string(),
-                user_id: "0".to_string(),
-                msg: format!("Queue is full. Skipped {}'s message.", next_payload.username).to_string(),
-                color: "#FFFF66".to_string(),
-                ..Default::default()
-            });
+            if verbose {
+                let _ = tx.send(ChatPayload {
+                    username: "[SYSTEM]".to_string(),
+                    user_id: "0".to_string(),
+                    msg: format!("Queue is full. Skipped {}'s message.", next_payload.username).to_string(),
+                    color: "#FFFF66".to_string(),
+                    ..Default::default()
+                });
+            }
             *payload = next_payload;
         }
 
@@ -73,7 +93,7 @@ pub async fn should_process_msg(
 pub async fn start_reading(
     mut rx: broadcast::Receiver<ChatPayload>,
     tx: broadcast::Sender<ChatPayload>,
-    queue_counter: Arc<AtomicI32>,
+    queue_counter: Arc<AtomicUsize>,
 ) {
     let (dict_map, dict_trie) = load_files();
 
@@ -87,24 +107,18 @@ pub async fn start_reading(
         }
     });
 
-    let max_chars: usize = env::var("MAX_CHAR_COUNT")
-        .unwrap_or_else(|_| "100".to_string())
-        .parse()
-        .unwrap_or(100);
-    let max_queue: i32 = env::var("MAX_QUEUE_COUNT")
-        .unwrap_or_else(|_| "100".to_string())
-        .parse()
-        .unwrap_or(100);
-    let query_policy = env::var("QUEUE_DROP_POLICY").unwrap_or_else(|_| "drop_new".to_string());
+    let (verbose, max_chars, max_queue, query_policy) = get_env_variables();
     let mut last_user_id: Option<String> = None;
 
-    let _ = tx.send(ChatPayload {
-        username: "[SYSTEM]".to_string(),
-        user_id: "0".to_string(),
-        msg: format!("[VOICE SETTINGS] max_queue: {}, max_chars: {}, query_policy: {}", max_queue, max_chars, query_policy).to_string(),
-        color: "#FFBB66".to_string(),
-        ..Default::default()
-    });
+    if verbose {
+        let _ = tx.send(ChatPayload {
+            username: "[SYSTEM]".to_string(),
+            user_id: "0".to_string(),
+            msg: format!("[VOICE SETTINGS] max_queue: {}, max_chars: {}, query_policy: {}", max_queue, max_chars, query_policy).to_string(),
+            color: "#FFBB66".to_string(),
+            ..Default::default()
+        });
+    }
 
     let _ = tx.send(ChatPayload {
         username: "[SYSTEM]".to_string(),
@@ -126,6 +140,7 @@ pub async fn start_reading(
             &tx,
             &mut payload,
             &queue_counter,
+            verbose,
             max_queue,
             query_policy.clone()
         ).await 
@@ -157,14 +172,6 @@ pub async fn start_reading(
             queue_counter.fetch_sub(1, Ordering::SeqCst);
             continue;
         }
-
-        let _ = tx.send(ChatPayload {
-            username: "[SYSTEM]".to_string(),
-            user_id: "0".to_string(),
-            msg: format!("[DEBUG] Queue Counter: {}", queue_counter.load(Ordering::SeqCst)),
-            color: "#FFBB66".to_string(),
-            ..Default::default()
-        });
 
     }
 }
