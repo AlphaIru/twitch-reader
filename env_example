@@ -1,5 +1,8 @@
 # RENAME THIS FILE TO .env
 
+# If you want a verbose log, set this to true
+VERBOSE_LOG=false
+
 # If you want to use the OpenJTalk voice, set this to true
 ENABLE_YOMI=false
 
