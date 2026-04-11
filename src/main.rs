@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         tokio::spawn(async move {
             let _ = tx_for_yomi.send(ChatPayload {
-                username: "SYSTEM".to_string(),
+                username: "[SYSTEM]".to_string(),
                 user_id: "0".to_string(),
                 msg: "Yomi (Voice) is active.".to_string(),
                 color: "#FFFF66".to_string(),
@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             while let Ok(mut payload) = _rx_for_yomi.recv().await {
 
-                if payload.username == "SYSTEM" || payload.username == "SKIP"
+                if payload.username == "[SYSTEM]" || payload.username == "[SKIP]"
                 {
                     continue;
                 }
@@ -89,10 +89,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     while voice_counter_for_yomi.load(Ordering::SeqCst) > max_queue
                     {
                         if let Ok(next_payload) = _rx_for_yomi.try_recv(){
-                            if next_payload.username == "SYSTEM" { continue; }
+                            if next_payload.username == "[SYSTEM]" { continue; }
 
                             let _ = tx_for_yomi.send(ChatPayload {
-                                username: "SYSTEM".to_string(),
+                                username: "[SYSTEM]".to_string(),
                                 user_id: "0".to_string(),
                                 msg: format!("Queue is full! Skipped Reading for {} ({}): {}", payload.username, payload.user_id, payload.msg),
                                 color: "#FFFF66".to_string(),
@@ -123,7 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tx_for_nico = broadcast_tx.clone();
         tokio::spawn(async move {
             let _ = tx_for_nico.send(ChatPayload {
-                username: "SYSTEM".to_string(),
+                username: "[SYSTEM]".to_string(),
                 user_id: "0".to_string(),
                 msg: "Nico (WebSocket) is active.".to_string(),
                 color: "#FFFF66".to_string(),
@@ -139,13 +139,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // TUI
     let _ = broadcast_tx.send(ChatPayload {
-        username: "SYSTEM".to_string(),
+        username: "[SYSTEM]".to_string(),
         user_id: "0".to_string(),
         msg: "Twitch Reader System started.".to_string(),
         color: "#FFFF66".to_string(),
         ..Default::default()
     });
-    // println!("Twitch Reader System started!");
 
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
@@ -177,13 +176,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         terminal.draw(|f| tui::render(f, &logs))?;
 
-        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
-            if let crossterm::event::Event::Key(key) = crossterm::event::read()? {
-                if key.code == crossterm::event::KeyCode::Esc {
+        if crossterm::event::poll(std::time::Duration::from_millis(100))?
+            && let crossterm::event::Event::Key(key) = crossterm::event::read()?
+                && key.code == crossterm::event::KeyCode::Esc {
                     break; 
                 }
-            }
-        }
     }
 
     crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;

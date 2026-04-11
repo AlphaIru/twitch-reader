@@ -52,7 +52,7 @@ pub async fn run_yomi_hub(
         .parse()
         .unwrap_or(100);
 
-    if max_chars <= 0 {
+    if max_chars == 0 {
         panic!("MAX_CHAR_COUNT must be greater than 0!");
     }
 
@@ -74,9 +74,10 @@ pub async fn run_yomi_hub(
     let mut last_user_id: Option<String> = None;
 
     let _ = broadcast_tx.send(ChatPayload {
-        username: "SYSTEM".to_string(),
+        username: "[SYSTEM]".to_string(),
         user_id: "0".to_string(),
-        msg: format!("Twitch Reader is running!"),
+        msg: ("Twitch Reader is running!").to_string(),
+        color: "#FFFF66".to_string(),
         ..Default::default()
     });
 
@@ -102,9 +103,10 @@ pub async fn run_yomi_hub(
 
         if !should_process {
             let _ = broadcast_tx.send(ChatPayload {
-                username: "SYSTEM".to_string(),
+                username: "[SYSTEM]".to_string(),
                 user_id: "0".to_string(),
                 msg: format!("Queue is full! ({} / {}): Skipped Reading for {}", current_queue_num, max_queue, msg),
+                color: "#FFFF66".to_string(),
                 ..Default::default()
             });
             continue;

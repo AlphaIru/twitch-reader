@@ -65,40 +65,41 @@ pub async fn run_twitch_listener(
     client.join(username.clone()).expect("Failed to join channel");
 
     let _ = tx.send(Message::DM {
-        username: "SYSTEM".to_string(),
+        username: "[SYSTEM]".to_string(),
         user_id: "0".to_string(),
-        msg: format!("Joining chat in channel \"{}\"", username),
+        msg: format!("Joining chat in channel \"{}\". Twitch listener started!", username),
         color: "#FFFF66".to_string(),
         is_mod: false,
         is_broadcaster: false,
     }).await;
 
-    let _ = tx.send(Message::DM {
-        username: "SYSTEM".to_string(),
-        user_id: "0".to_string(),
-        msg: format!("Twitch Listener started!"),
-        color: "#FFFF66".to_string(),
-        is_mod: false,
-        is_broadcaster: false,
-    });
-    
-
     while let Some(message) = incoming_messages.recv().await {
 
         match &message {
-            // ServerMessage::Join(msg) => println!("Successfully joined: {}", msg.channel_login),
-            // ServerMessage::Notice(msg) => println!("Notice from Twitch: {}", msg.message_text),
+            ServerMessage::Join(msg) => {
+                tx.send(Message::DM {
+                    username: "[SYSTEM]".to_string(),
+                    user_id: "0".to_string(),
+                    msg: format!("Successfully joined: {}", msg.channel_login),
+                    color: "#FFFF66".to_string(),
+                    is_mod: false,
+                    is_broadcaster: false,
+                }).await.unwrap();
+            }
+
+            ServerMessage::Notice(msg) => {
+                tx.send(Message::DM {
+                    username: "[SYSTEM]".to_string(),
+                    user_id: "0".to_string(),
+                    msg: format!("Noice from Twitch: {}", msg.message_text),
+                    color: "#FFFF66".to_string(),
+                    is_mod: false,
+                    is_broadcaster: false,
+                }).await.unwrap();
+            }
+            
            _ => {} 
         }
-        // let color = message.source().tags.0.get("color")
-        //     .cloned()
-        //     .flatten()
-        //     .unwrap_or_else(|| "#FFFFFF".to_string());
-
-        // let is_mod = message.source().tags.0.get("mod").and_then(|v| v.as_ref()).map(|v| v == "1").unwrap_or(false);
-
-        // let is_broadcaster = message.source().tags.0.get("badges").and_then(|v| v.as_ref())
-        // .map(|v| v.contains("broadcaster/1")).unwrap_or(false);
 
         if let ServerMessage::Privmsg(message) = message {
             // println!("Got a message: {}", message.message_text);

@@ -7,14 +7,13 @@ use ratatui::{
 };
 
 fn parse_hex_color(hex: &str) -> Color {
-    if hex.starts_with('#') && hex.len() == 7 {
-        if let (Ok(r), Ok(g), Ok(b)) = (
+    if hex.starts_with('#') && hex.len() == 7
+        && let (Ok(r), Ok(g), Ok(b)) = (
             u8::from_str_radix(&hex[1..3], 16),
             u8::from_str_radix(&hex[3..5], 16),
             u8::from_str_radix(&hex[5..7], 16),
         ) {
             return Color::Rgb(r, g, b);
-        }
     }
     Color::White
 }
@@ -36,7 +35,7 @@ pub fn render(
     let display_start = logs.len().saturating_sub(chat_height);
     let visible_logs = &logs[display_start..];
 
-    let status_info = format!(" Mode: Running ");
+    let status_info = (" TWITCH READER! ").to_string();
     let status = Paragraph::new(status_info)
         .style(Style::default().fg(Color::Cyan))
         .block(Block::default().borders(Borders::ALL).title(" Status "));
