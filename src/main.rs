@@ -46,8 +46,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
     let enable_yomi = env::var("ENABLE_YOMI").unwrap_or_else(|_| "false".to_string()) == "true"; 
-    let enable_nico = env::var("ENABLE_NICO").unwrap_or_else(|_| "false".to_string()) == "true";
-
 
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
 
@@ -56,9 +54,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         oauth_token.clone(),
         broadcast_tx.clone()
     );
-    // tokio::spawn(async move {
-    //     yomi::run_yomi_hub(username, oauth_token, tx_for_hub, voice_counter_for_hub).await;
-    // });
 
     if enable_yomi {
         let rx_for_yomi = broadcast_tx.subscribe();
@@ -71,23 +66,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tx_for_yomi,
                 voice_queue_counter.clone()
         ).await;
-        });
-    }
-
-    if enable_nico {
-        let tx_for_nico = broadcast_tx.clone();
-        tokio::spawn(async move {
-            let _ = tx_for_nico.send(ChatPayload {
-                username: "[SYSTEM]".to_string(),
-                user_id: "0".to_string(),
-                msg: "Nico (WebSocket) is active.".to_string(),
-                color: "#FFFF66".to_string(),
-                ..Default::default()
-            });
-        });
-
-        let mut _rx_for_nico = broadcast_tx.subscribe();
-        tokio::spawn(async move {
         });
     }
 
