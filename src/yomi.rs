@@ -13,133 +13,159 @@
 
 use std::env;
 use std::sync::Arc;
-use std::sync::atomic::AtomicI32;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 use tokio::sync::{broadcast, mpsc};
 
 use crate::ChatPayload;
-use crate::twitch::Message;
 use crate::word_process::{
     clean_text,
     load_files,
     limit_length
 };
+use crate::voice_creation::speak;
 
 
-pub async fn run_yomi_hub(
-    username: String,
-    oauth_token: String,
-    broadcast_tx: broadcast::Sender<ChatPayload>,
-    voice_queue_counter: Arc<AtomicI32>
+pub async fn should_process_msg(
+    rx: &mut broadcast::Receiver<ChatPayload>,
+    tx: &broadcast::Sender<ChatPayload>,
+    payload: &mut ChatPayload,
+    queue_counter: &Arc<AtomicI32>,
+    max_queue: i32,
+    query_policy: String
+) -> bool {
+    if queue_counter.load(Ordering::SeqCst) < max_queue {
+        return true;
+    }
+    
+    if query_policy != "drop_old" {
+        let _ = tx.send(ChatPayload {
+                username: "[SYSTEM]".to_string(),
+                user_id: "0".to_string(),
+                msg: format!("Queue is full. Skipped {}'s message.", payload.username).to_string(),
+                color: "#FFFF66".to_string(),
+                ..Default::default()
+        });
+        return false;
+    }
+
+    while queue_counter.load(Ordering::SeqCst) >= max_queue {
+        while let Ok(next_payload) = rx.try_recv() {
+            if next_payload.username == "[SYSTEM]" || next_payload.username == "[SKIP]" {
+                continue;
+            }
+            let _ = tx.send(ChatPayload {
+                username: "[SYSTEM]".to_string(),
+                user_id: "0".to_string(),
+                msg: format!("Queue is full. Skipped {}'s message.", next_payload.username).to_string(),
+                color: "#FFFF66".to_string(),
+                ..Default::default()
+            });
+            *payload = next_payload;
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
+    true
+}
+
+
+pub async fn start_reading(
+    mut rx: broadcast::Receiver<ChatPayload>,
+    tx: broadcast::Sender<ChatPayload>,
+    queue_counter: Arc<AtomicI32>,
 ) {
-
     let (dict_map, dict_trie) = load_files();
-    let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(100);
 
+    let (speak_tx, mut speak_rx) = mpsc::channel::<String>(100);
 
-    // Turn on Twitch Listener task
+    let queue_counter_clone = queue_counter.clone();
     tokio::spawn(async move {
-        crate::twitch::run_twitch_listener(
-            username,
-            oauth_token,
-            twitch_tx
-        ).await;
+        while let Some(msg) = speak_rx.recv().await {
+            speak(msg).await;
+            queue_counter_clone.fetch_sub(1, Ordering::SeqCst);
+        }
     });
-
 
     let max_chars: usize = env::var("MAX_CHAR_COUNT")
         .unwrap_or_else(|_| "100".to_string())
         .parse()
         .unwrap_or(100);
-
-    if max_chars == 0 {
-        panic!("MAX_CHAR_COUNT must be greater than 0!");
-    }
-
-
     let max_queue: i32 = env::var("MAX_QUEUE_COUNT")
         .unwrap_or_else(|_| "100".to_string())
         .parse()
         .unwrap_or(100);
-
-    if max_queue <= 0 {
-        panic!("MAX_QUEUE must be greater than 0!");
-    }
-
-    let max_queue_ciel = max_queue * 2;
-
-    let drop_policy = env::var("QUEUE_DROP_POLICY")
-        .unwrap_or_else(|_| "drop_new".to_string());
-
+    let query_policy = env::var("QUEUE_DROP_POLICY").unwrap_or_else(|_| "drop_new".to_string());
     let mut last_user_id: Option<String> = None;
 
-    let _ = broadcast_tx.send(ChatPayload {
+    let _ = tx.send(ChatPayload {
         username: "[SYSTEM]".to_string(),
         user_id: "0".to_string(),
-        msg: ("Twitch Reader is running!").to_string(),
+        msg: format!("[VOICE SETTINGS] max_queue: {}, max_chars: {}, query_policy: {}", max_queue, max_chars, query_policy).to_string(),
+        color: "#FFBB66".to_string(),
+        ..Default::default()
+    });
+
+    let _ = tx.send(ChatPayload {
+        username: "[SYSTEM]".to_string(),
+        user_id: "0".to_string(),
+        msg: "Yomi (Voice) is active.".to_string(),
         color: "#FFFF66".to_string(),
         ..Default::default()
     });
 
-    // Recv loop
-    while let Some(msg) = twitch_rx.recv().await {
-        let current_queue_num = voice_queue_counter.load(std::sync::atomic::Ordering::SeqCst);
-        
-        let Message::DM { 
-            username,
-            user_id,
-            msg,
-            color,
-            is_mod,
-            is_broadcaster
-        } = msg;
+    while let Ok(mut payload) = rx.recv().await {
 
-        let should_process = if drop_policy == "drop_old" {
-            current_queue_num < max_queue_ciel
-        }
-        else {
-            current_queue_num < max_queue
-        };
-
-        if !should_process {
-            let _ = broadcast_tx.send(ChatPayload {
-                username: "[SYSTEM]".to_string(),
-                user_id: "0".to_string(),
-                msg: format!("Queue is full! ({} / {}): Skipped Reading for {}", current_queue_num, max_queue, msg),
-                color: "#FFFF66".to_string(),
-                ..Default::default()
-            });
+        if payload.username == "[SYSTEM]" || payload.username == "[SKIP]"
+        {
             continue;
         }
 
-        voice_queue_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if !should_process_msg(
+            &mut rx,
+            &tx,
+            &mut payload,
+            &queue_counter,
+            max_queue,
+            query_policy.clone()
+        ).await 
+        {
+            continue;
+        }
 
-        let display_text = if last_user_id.as_deref() == Some(&user_id) {
-            msg.clone()
-        } else {
-            let f = format!("{}： {}", username, msg);
-            last_user_id = Some(user_id.clone());
-            f
+        let display_msg = if last_user_id == Some(payload.user_id.clone()) {
+            payload.msg.clone()
+        }
+        else {
+            last_user_id = Some(payload.user_id.clone());
+            format!("{}: {}", payload.username, payload.msg)
         };
 
-        let mut processed = limit_length(display_text, max_chars);
-        processed = clean_text(
-            processed, 
+        let processed_msg = clean_text(
+            display_msg,
             &dict_map,
-            &dict_trie
+            &dict_trie,
         );
+        let processed_msg = limit_length(processed_msg, max_chars);
 
-        let payload = ChatPayload {
-            username: username.clone(),
-            user_id: user_id.clone(),
-            msg: msg.clone(),
-            processed_msg: processed,
-            color: color.clone(),
-            is_mod,
-            is_broadcaster,
-        };
+        if processed_msg.trim().is_empty() {
+            continue;
+        }
 
-        let _ = broadcast_tx.send(payload);
+        queue_counter.fetch_add(1, Ordering::SeqCst);
+        if speak_tx.send(processed_msg.clone()).await.is_err() {
+            queue_counter.fetch_sub(1, Ordering::SeqCst);
+            continue;
+        }
+
+        let _ = tx.send(ChatPayload {
+            username: "[SYSTEM]".to_string(),
+            user_id: "0".to_string(),
+            msg: format!("[DEBUG] Queue Counter: {}", queue_counter.load(Ordering::SeqCst)),
+            color: "#FFBB66".to_string(),
+            ..Default::default()
+        });
+
     }
 }
 

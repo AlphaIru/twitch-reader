@@ -11,7 +11,9 @@ use std::fmt::Display;
 use twitch_irc::login::StaticLoginCredentials;
 use twitch_irc::{ClientConfig, SecureTCPTransport, TwitchIRCClient};
 use twitch_irc::message::ServerMessage;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
+
+use crate::ChatPayload;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -47,6 +49,36 @@ impl Display for Message {
             ),
         }
     }
+}
+
+pub fn connect(
+    username: String,
+    oauth_token: String,
+    broadcast_tx: broadcast::Sender<ChatPayload>,
+) {
+    let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(100);
+
+    tokio::spawn(async move {
+        run_twitch_listener(username, oauth_token, twitch_tx).await;
+    });
+
+    let tx_for_payload = broadcast_tx.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = twitch_rx.recv().await {
+            match msg {
+                Message::DM { username, user_id, msg, color, is_mod, is_broadcaster } => {
+                    let _ = tx_for_payload.send(ChatPayload {
+                        username,
+                        user_id,
+                        msg,
+                        color,
+                        is_mod,
+                        is_broadcaster,
+                    });
+                }
+            }
+        }
+    });
 }
 
 pub async fn run_twitch_listener(

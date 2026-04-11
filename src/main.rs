@@ -15,13 +15,13 @@
 use std::env;
 use dotenvy::dotenv;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::AtomicI32;
 
 use tokio::sync::broadcast;
 
 mod yomi;
-mod voice_creation;
 mod word_process;
+mod voice_creation;
 mod twitch;
 mod tui;
 
@@ -30,7 +30,6 @@ pub struct ChatPayload {
     pub username: String,
     pub user_id: String,
     pub msg: String,
-    pub processed_msg: String,
     pub color: String,
     pub is_mod: bool,
     pub is_broadcaster: bool,
@@ -51,71 +50,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
-    let voice_queue_counter = Arc::new(AtomicI32::new(0));
 
-    let tx_for_hub = broadcast_tx.clone();
-    let voice_counter_for_hub = Arc::clone(&voice_queue_counter);
-    tokio::spawn(async move {
-        yomi::run_yomi_hub(username, oauth_token, tx_for_hub, voice_counter_for_hub).await;
-    });
+    twitch::connect(
+        username.clone(),
+        oauth_token.clone(),
+        broadcast_tx.clone()
+    );
+    // tokio::spawn(async move {
+    //     yomi::run_yomi_hub(username, oauth_token, tx_for_hub, voice_counter_for_hub).await;
+    // });
 
     if enable_yomi {
-        let mut _rx_for_yomi = broadcast_tx.subscribe();
-        let voice_counter_for_yomi = Arc::clone(&voice_queue_counter);
-
+        let rx_for_yomi = broadcast_tx.subscribe();
         let tx_for_yomi = broadcast_tx.clone();
-        let max_queue: i32 = env::var("MAX_QUEUE_COUNT")
-            .unwrap_or_else(|_| "100".to_string())
-            .parse()
-            .unwrap_or(100);
-        let query_policy = env::var("QUEUE_DROP_POLICY").unwrap_or_else(|_| "drop_new".to_string());
+        let voice_queue_counter = Arc::new(AtomicI32::new(0));
 
         tokio::spawn(async move {
-            let _ = tx_for_yomi.send(ChatPayload {
-                username: "[SYSTEM]".to_string(),
-                user_id: "0".to_string(),
-                msg: "Yomi (Voice) is active.".to_string(),
-                color: "#FFFF66".to_string(),
-                ..Default::default()
-            });
-
-            while let Ok(mut payload) = _rx_for_yomi.recv().await {
-
-                if payload.username == "[SYSTEM]" || payload.username == "[SKIP]"
-                {
-                    continue;
-                }
-                if query_policy == "drop_old" {
-                    while voice_counter_for_yomi.load(Ordering::SeqCst) > max_queue
-                    {
-                        if let Ok(next_payload) = _rx_for_yomi.try_recv(){
-                            if next_payload.username == "[SYSTEM]" { continue; }
-
-                            let _ = tx_for_yomi.send(ChatPayload {
-                                username: "[SYSTEM]".to_string(),
-                                user_id: "0".to_string(),
-                                msg: format!("Queue is full! Skipped Reading for {} ({}): {}", payload.username, payload.user_id, payload.msg),
-                                color: "#FFFF66".to_string(),
-                                ..Default::default()
-                            });
-                            voice_counter_for_yomi.fetch_add(-1, Ordering::Relaxed);
-                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                            payload= next_payload;
-                        } 
-                        else {
-                            break;
-                        }
-                    }
-                }
-
-                if payload.processed_msg.trim().is_empty() {
-                    voice_counter_for_yomi.fetch_add(-1, Ordering::Relaxed);
-                    continue;
-                }
-                voice_creation::speak(payload.processed_msg).await;
-
-                voice_counter_for_yomi.fetch_add(-1, Ordering::Relaxed);
-            }
+            yomi::start_reading(
+                rx_for_yomi,
+                tx_for_yomi,
+                voice_queue_counter.clone()
+        ).await;
         });
     }
 
