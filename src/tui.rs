@@ -1,3 +1,16 @@
+//! AlphaIru
+//! Twitch Reader
+//! 
+//! tui.rs
+//!
+//! This is the file that handles the rendering
+//! of the tui.
+//!     
+
+use tokio::sync::broadcast;
+
+use crate::ChatPayload;
+
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style, Modifier},
@@ -31,7 +44,6 @@ pub fn render(
         .split(f.area());
 
     let chat_height = chunks[1].height.saturating_sub(2) as usize;
-
     let display_start = logs.len().saturating_sub(chat_height);
     let visible_logs = &logs[display_start..];
 
@@ -72,4 +84,58 @@ pub fn render(
         .block(Block::default().borders(Borders::ALL).title(" Chat Log (Esc to Quit) "));
 
     f.render_widget(log_list, chunks[1]);
+}
+
+pub fn run_tui(
+    broadcast_tx: broadcast::Sender<ChatPayload>
+) -> Result<(), Box<dyn std::error::Error>> {
+    crossterm::terminal::enable_raw_mode()?;
+    let mut stdout = std::io::stdout();
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
+    let backend = ratatui::backend::CrosstermBackend::new(stdout);
+    let mut terminal = ratatui::Terminal::new(backend)?;
+
+    let mut logs: Vec<String> = Vec::new();
+    let mut rx_for_tui_log = broadcast_tx.subscribe();
+
+    let _ = broadcast_tx.send(ChatPayload {
+        username: "[SYSTEM]".to_string(),
+        user_id: "0".to_string(),
+        msg: "Twitch Reader System started.".to_string(),
+        color: "#FFFF66".to_string(),
+        ..Default::default()
+    });
+
+
+    loop {
+        while let Ok(payload) = rx_for_tui_log.try_recv() {
+            let log_entry = format!(
+                "{}|{}|{}|{}: {}",
+                payload.color,
+                payload.is_mod,
+                payload.is_broadcaster,
+                payload.username,
+                payload.msg
+            );
+            
+            logs.push(log_entry);
+
+            if logs.len() > 50 {
+                logs.remove(0);
+            }
+        }
+
+        terminal.draw(|f| render(f, &logs))?;
+
+        if crossterm::event::poll(std::time::Duration::from_millis(100))?
+            && let crossterm::event::Event::Key(key) = crossterm::event::read()?
+                && key.code == crossterm::event::KeyCode::Esc {
+                    break; 
+                }
+    };
+
+    crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
+    crossterm::terminal::disable_raw_mode()?;
+
+    Ok(()) 
 }
