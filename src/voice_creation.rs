@@ -14,7 +14,10 @@ use tokio::process::Command;
 use tokio::io::AsyncWriteExt;
 
 
-pub async fn speak(text: String) {
+pub async fn speak(text: String) -> bool {
+    if text.is_empty() {
+        return false;
+    }
 
     let dict_path = env::var("OPEN_JTALK_DICT_PATH")
         .expect("Error: .env file not found or OPEN_JTALK_DICT_PATH must be set");
@@ -34,16 +37,6 @@ pub async fn speak(text: String) {
         .spawn()
         .expect("Failed to start open_jtalk");
     
-    /*
-    match(child.stdin.take()) {
-        Ok(mut stdin) => {
-            stdin.write_all(text.as_bytes()).ok();
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-        }
-    }
-    */
 
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin.write_all(text.as_bytes()).await;
@@ -58,12 +51,15 @@ pub async fn speak(text: String) {
             .arg("--raw")                
             .arg("--channels=1")
             .arg("--rate=48000")
-            .stdin(Stdio::from(std_stdout))
+            .stdin(std_stdout)
             .status()
             .await;
 
-        if let Err(e) = status {
-            println!("Error during playback: {}", e);
+        if status.is_err() {
+            return false;
+            // println!("Error: {}", err);
         }
     }
+
+    true
 }

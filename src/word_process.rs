@@ -9,8 +9,7 @@
 //!
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 use regex::Regex;
@@ -22,10 +21,9 @@ pub fn load_files() -> (HashMap<String, String>, Trie<u8>) {
     let mut dict_trie_builder = TrieBuilder::new();
 
 
-    if let Err(e) = std::fs::create_dir("./dict") {
-        if e.kind() != std::io::ErrorKind::AlreadyExists {
-            panic!("Failed to create directory: {}", e);
-        }
+    if let Err(e) = std::fs::create_dir("./dict")
+    && e.kind() != std::io::ErrorKind::AlreadyExists {
+        panic!("Failed to create directory: {}", e);
     }
 
     for file_entry in std::fs::read_dir("./dict").unwrap() {
@@ -109,9 +107,7 @@ pub fn replace_words(input: String, map: &HashMap<String, String>) -> String {
 
 
 pub fn hear_aid(text: String) -> String {
-    text.replace('~', "ー")
-        .replace('～', "ー")
-        .replace('-', "ー")
+    text.replace(['~', '〜', '-'], "ー")
         .replace('|', " ")
         .replace('…', "、")
 }
@@ -169,14 +165,13 @@ pub fn replace_with_trie(
 
 pub fn append_unknown_word(word: &str) {
     let mut file = OpenOptions::new()
-        .write(true)
         .append(true)
         .create(true)
         .open("./unknown.csv")
         .expect("Failed to open unknown.csv");
 
-    if let Err(e) = writeln!(file, "{},", word) {
-        eprintln!("Couldn't write to file: {}", e);
+    if let Err(e) = writeln!(file, "{}", word) {
+        panic!("Failed to write to unknown.csv: {}", e);
     }
 }
 
@@ -189,8 +184,8 @@ pub fn clean_text(
     recv_msg = hear_aid(recv_msg);
     recv_msg = to_zenkaku_punctuation(recv_msg);
     recv_msg = to_hankaku_alphabets(recv_msg);
-    recv_msg = replace_words(recv_msg, &dict_map);
-    recv_msg = replace_with_trie(&recv_msg, &dict_map, &dict_trie); 
+    recv_msg = replace_words(recv_msg, dict_map);
+    recv_msg = replace_with_trie(&recv_msg, dict_map, dict_trie); 
     recv_msg = remove_garbage(recv_msg);
 
     recv_msg.trim().to_string()
