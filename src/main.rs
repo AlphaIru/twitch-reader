@@ -92,54 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
-    // TUI
-    let _ = broadcast_tx.send(ChatPayload {
-        username: "[SYSTEM]".to_string(),
-        user_id: "0".to_string(),
-        msg: "Twitch Reader System started.".to_string(),
-        color: "#FFFF66".to_string(),
-        ..Default::default()
-    });
-
-    crossterm::terminal::enable_raw_mode()?;
-    let mut stdout = std::io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
-    let backend = ratatui::backend::CrosstermBackend::new(stdout);
-    let mut terminal = ratatui::Terminal::new(backend)?;
-
-    let mut logs: Vec<String> = Vec::new();
-    let mut rx_for_tui_log = broadcast_tx.subscribe();
-
-    loop {
-        while let Ok(payload) = rx_for_tui_log.try_recv() {
-            let log_entry = format!(
-                "{}|{}|{}|{}: {}",
-                payload.color,
-                payload.is_mod,
-                payload.is_broadcaster,
-                payload.username,
-                payload.msg
-            );
-            
-            // logs.insert(0, log_entry);
-            logs.push(log_entry);
-
-            if logs.len() > 50 {
-                logs.remove(0);
-            }
-        }
-
-        terminal.draw(|f| tui::render(f, &logs))?;
-
-        if crossterm::event::poll(std::time::Duration::from_millis(100))?
-            && let crossterm::event::Event::Key(key) = crossterm::event::read()?
-                && key.code == crossterm::event::KeyCode::Esc {
-                    break; 
-                }
-    }
-
-    crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
-    crossterm::terminal::disable_raw_mode()?;
+    tui::run_tui(broadcast_tx)?;
 
     Ok(())
 }
