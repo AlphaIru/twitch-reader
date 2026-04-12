@@ -14,11 +14,10 @@
 
 use std::env;
 use dotenvy::dotenv;
-use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
 
 use tokio::sync::broadcast;
 
+mod nico;
 mod twitch;
 mod tui;
 
@@ -56,17 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if enable_nico {
         let tx_for_nico = broadcast_tx.clone();
         tokio::spawn(async move {
-            let _ = tx_for_nico.send(ChatPayload {
-                username: "[SYSTEM]".to_string(),
-                user_id: "0".to_string(),
-                msg: "Nico (WebSocket) is active.".to_string(),
-                color: "#FFFF66".to_string(),
-                ..Default::default()
-            });
-        });
-
-        let mut _rx_for_nico = broadcast_tx.subscribe();
-        tokio::spawn(async move {
+            nico::start_nico_server(tx_for_nico).await;
         });
     }
 
