@@ -14,7 +14,7 @@
     <script>
       if (typeof NICO_ADDR === "undefined") {
         console.warn(
-          "config.js が読み込めませんでした。デフォルト値を使用します。",
+          "Cannot find NICO_ADDR in config.js, using default value: 127.0.0.1:2578",
         );
         var NICO_ADDR = "127.0.0.1:2578";
       }
