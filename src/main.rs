@@ -22,6 +22,7 @@ use tokio::sync::broadcast;
 mod yomi;
 mod word_process;
 mod voice_creation;
+mod nico;
 mod twitch;
 mod tui;
 
@@ -46,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
     let enable_yomi = env::var("ENABLE_YOMI").unwrap_or_else(|_| "false".to_string()) == "true"; 
+    let enable_nico = env::var("ENABLE_NICO").unwrap_or_else(|_| "false".to_string()) == "true";
 
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
 
@@ -66,6 +68,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tx_for_yomi,
                 voice_queue_counter.clone()
         ).await;
+        });
+    }
+    if enable_nico {
+        let tx_for_nico = broadcast_tx.clone();
+        tokio::spawn(async move {
+            nico::start_nico_server(tx_for_nico).await;
         });
     }
 
