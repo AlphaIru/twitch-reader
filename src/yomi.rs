@@ -17,6 +17,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::sync::{broadcast, mpsc};
 
+use regex::Regex;
+
 use crate::ChatPayload;
 use crate::word_process::{
     clean_text,
@@ -128,6 +130,10 @@ pub async fn start_reading(
         ..Default::default()
     });
 
+    
+    let valid_char_re = Regex::new(r"[a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]").unwrap();
+
+
     while let Ok(mut payload) = rx.recv().await {
 
         if payload.username == "[SYSTEM]" || payload.username == "[SKIP]"
@@ -145,6 +151,11 @@ pub async fn start_reading(
             query_policy.clone()
         ).await 
         {
+            continue;
+        }
+
+
+        if !valid_char_re.is_match(&payload.msg) {
             continue;
         }
 

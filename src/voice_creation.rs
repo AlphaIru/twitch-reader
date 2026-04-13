@@ -34,6 +34,7 @@ pub async fn speak(text: String) -> bool {
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn()
         .expect("Failed to start open_jtalk");
     
