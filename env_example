@@ -6,9 +6,6 @@ VERBOSE_LOG=false
 # If you want to use the OpenJTalk voice, set this to true
 ENABLE_YOMI=false
 
-# If you want to use the NicoNico HTML overlay, set this to true
-ENABLE_NICO=false
-
 # ---------------------------------
 
 # Note: This is your twitch id not your bot's id
