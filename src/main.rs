@@ -14,15 +14,9 @@
 
 use std::env;
 use dotenvy::dotenv;
-use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
 
 use tokio::sync::broadcast;
 
-mod yomi;
-mod word_process;
-mod voice_creation;
-mod nico;
 mod twitch;
 mod tui;
 
@@ -46,8 +40,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
     let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
-    let enable_yomi = env::var("ENABLE_YOMI").unwrap_or_else(|_| "false".to_string()) == "true"; 
-    let enable_nico = env::var("ENABLE_NICO").unwrap_or_else(|_| "false".to_string()) == "true";
 
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
 
@@ -56,26 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         oauth_token.clone(),
         broadcast_tx.clone()
     );
-
-    if enable_yomi {
-        let rx_for_yomi = broadcast_tx.subscribe();
-        let tx_for_yomi = broadcast_tx.clone();
-        let voice_queue_counter = Arc::new(AtomicUsize::new(0));
-
-        tokio::spawn(async move {
-            yomi::start_reading(
-                rx_for_yomi,
-                tx_for_yomi,
-                voice_queue_counter.clone()
-        ).await;
-        });
-    }
-    if enable_nico {
-        let tx_for_nico = broadcast_tx.clone();
-        tokio::spawn(async move {
-            nico::start_nico_server(tx_for_nico).await;
-        });
-    }
 
 
     tui::run_tui(broadcast_tx)?;
