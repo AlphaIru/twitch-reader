@@ -20,6 +20,9 @@ pub struct AppState {
     pub mode: InputMode,
     pub logs: Vec<String>,
     pub show_help: bool,
+
+    pub my_name: String,
+    pub my_color: String,
 }
 
 
@@ -30,6 +33,9 @@ impl AppState {
             mode: InputMode::Normal,
             logs: Vec::new(),
             show_help: false,
+            
+            my_name: "You".to_string(),
+            my_color: "#FFFFFF".to_string(),
         }
     }
 

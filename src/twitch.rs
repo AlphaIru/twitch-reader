@@ -8,10 +8,14 @@
 
 use std::fmt::Display;
 
-use twitch_irc::login::StaticLoginCredentials;
-use twitch_irc::{ClientConfig, SecureTCPTransport, TwitchIRCClient};
-use twitch_irc::message::ServerMessage;
-use tokio::sync::{broadcast, mpsc};
+use twitch_irc::{
+    ClientConfig,
+    SecureTCPTransport,
+    TwitchIRCClient,
+    login::StaticLoginCredentials,
+    message::ServerMessage
+};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::ChatPayload;
 
@@ -55,11 +59,19 @@ pub fn connect(
     username: String,
     oauth_token: String,
     broadcast_tx: broadcast::Sender<ChatPayload>,
+    narrowcast_rx: mpsc::Receiver<String>,
+    config_tx: oneshot::Sender<(String, String)>,
 ) {
     let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(100);
 
     tokio::spawn(async move {
-        run_twitch_listener(username, oauth_token, twitch_tx).await;
+        run_twitch_listener(
+            username,
+            oauth_token,
+            twitch_tx,
+            narrowcast_rx,
+            config_tx
+        ).await;
     });
 
     let tx_for_payload = broadcast_tx.clone();
@@ -85,8 +97,9 @@ pub async fn run_twitch_listener(
     username: String,
     oauth_token: String,
     tx: mpsc::Sender<Message>,
-)
-{
+    mut narrowcast_rx: mpsc::Receiver<String>,
+    config_tx: oneshot::Sender<(String, String)>,
+) {
     let config = ClientConfig::new_simple(
         StaticLoginCredentials::new(username.clone(), Some(oauth_token))
     );
@@ -95,6 +108,14 @@ pub async fn run_twitch_listener(
         TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 
     client.join(username.clone()).expect("Failed to join channel");
+    let client_clone = client.clone();
+    let channel_name = username.clone();
+
+    tokio::spawn(async move {
+        while let Some(msg_to_send) = narrowcast_rx.recv().await {
+            let _ = client_clone.say(channel_name.clone(), msg_to_send).await;
+        }
+    });
 
     let _ = tx.send(Message::DM {
         username: "[SYSTEM]".to_string(),
@@ -105,9 +126,22 @@ pub async fn run_twitch_listener(
         is_broadcaster: false,
     }).await;
 
-    while let Some(message) = incoming_messages.recv().await {
+    let mut config_tx_opt = Some(config_tx);
 
+    while let Some(message) = incoming_messages.recv().await {
+        
         match &message {
+            ServerMessage::GlobalUserState(state) => {
+                if let Some(tx) = config_tx_opt.take() {
+                    let my_name = state.user_name.clone();
+                    let my_color = state.name_color.as_ref()
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "#FFFFFF".to_string());
+
+                    let _ = tx.send((my_name, my_color));
+                }
+            }
+
             ServerMessage::Join(msg) => {
                 tx.send(Message::DM {
                     username: "[SYSTEM]".to_string(),

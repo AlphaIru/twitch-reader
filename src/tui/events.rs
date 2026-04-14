@@ -7,6 +7,8 @@
 //! of the tui.
 //!     
 
+use tokio::sync::mpsc;
+
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::state::{AppState, InputMode};
 
@@ -32,9 +34,10 @@ pub fn handle_normal(
     }
 }
 
-pub fn handle_insert(
+pub async fn handle_insert(
     key: KeyEvent,
-    app_state: &mut AppState
+    app_state: &mut AppState,
+    narrowcast_tx: mpsc::Sender<String>
 ) {
     match key.code {
         KeyCode::Esc => {
@@ -48,6 +51,16 @@ pub fn handle_insert(
         }
         KeyCode::Enter => {
             if !app_state.input_text.is_empty() {
+                let _ = narrowcast_tx.send(app_state.input_text.clone()).await;
+                
+                let self_log = format!(
+                    "{}|false|true|{}: {}",
+                    app_state.my_color,
+                    app_state.my_name,
+                    app_state.input_text
+                );
+                app_state.logs.push(self_log);
+
                 app_state.input_text.clear();
             }
             app_state.mode = InputMode::Normal;
@@ -87,9 +100,10 @@ pub fn handle_command(
 }
 
 
-pub fn handle_key(
+pub async fn handle_key(
     key: KeyEvent,
-    app_state: &mut AppState
+    app_state: &mut AppState,
+    narrowcast_tx: mpsc::Sender<String>
 ) -> bool {
     if app_state.show_help {
         if let KeyCode::Char('q') | KeyCode::Char('h') | KeyCode::Esc = key.code {
@@ -107,7 +121,7 @@ pub fn handle_key(
         }
 
         InputMode::Insert => {
-            handle_insert(key, app_state);
+            handle_insert(key, app_state, narrowcast_tx).await;
             true
         } 
         InputMode::Command => {

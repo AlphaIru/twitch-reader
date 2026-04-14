@@ -15,7 +15,7 @@
 use std::env;
 use dotenvy::dotenv;
 
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 mod twitch;
 mod tui;
@@ -41,16 +41,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
         .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
 
+    let (config_tx, config_rx) = oneshot::channel::<(String, String)>();
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
+    let (narrowcast_tx, narrowcast_rx) = mpsc::channel::<String>(100);
 
     twitch::connect(
         username.clone(),
         oauth_token.clone(),
-        broadcast_tx.clone()
+        broadcast_tx.clone(),
+        narrowcast_rx,
+        config_tx
     );
 
 
-    tui::run_tui(broadcast_tx)?;
+    tui::run_tui(broadcast_tx, narrowcast_tx, config_rx).await?;
 
     Ok(())
 }

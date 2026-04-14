@@ -10,7 +10,7 @@
 use std::time::Duration;
 use crossterm::event::{self, Event};
 
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::ChatPayload;
 
@@ -21,9 +21,12 @@ pub mod state;
 pub use state::AppState;
 
 
-pub fn run_tui (
+pub async fn run_tui (
     broadcast_tx: broadcast::Sender<ChatPayload>,
+    narrowcast_tx: mpsc::Sender<String>,
+    config_rx: oneshot::Receiver<(String, String)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
     crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
@@ -39,14 +42,18 @@ pub fn run_tui (
     });
 
 
-
     let mut state = AppState::new();
     let mut broadcast_rx = broadcast_tx.subscribe();
+
+    if let Ok((name, color)) = config_rx.await {
+        state.my_name = name;
+        state.my_color = color;
+    }
 
     loop {
         while let Ok(payload) = broadcast_rx.try_recv() {
             // state.push_log(format!("{}: {}", payload.username, payload.msg));
-        
+
             let log_entry = format!(
                 "{}|{}|{}|{}: {}",
                 payload.color,
@@ -64,7 +71,11 @@ pub fn run_tui (
             continue;
         }
         let Event::Key(key) = event::read()? else { continue };
-        if !events::handle_key(key, &mut state) 
+        if !events::handle_key(
+            key,
+            &mut state,
+            narrowcast_tx.clone(),
+        ).await
         {
             break;
         }
