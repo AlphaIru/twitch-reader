@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         oauth_token.clone(),
         broadcast_tx.clone(),
         narrowcast_rx,
-        config_tx
+        Some(config_tx)
     );
 
 

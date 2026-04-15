@@ -114,15 +114,18 @@ pub async fn run_twitch_listener(
     tokio::spawn(async move {
         while let Some(msg_to_send) = narrowcast_rx.recv().await {
             let msg = msg_to_send.trim();
+            if msg.is_empty() {
+                continue;
+            }
+            match msg {
+                "/clear" => {
+                    let raw = format!("CLEARCHAT #{}", channel_name.clone());
+                    if let Ok(irc_msg) = IRCMessage::parse(&raw) {
+                       let _ = client_clone.send_message(irc_msg).await;
+                    }
 
-            if msg.starts_with('/') {
-                let raw_command = format!("PRIVMSG #{} :{}", channel_name, msg);
-
-                if let Ok(irc_msg) = IRCMessage::parse(&raw_command) {
-                    let _ = client_clone.send_message(irc_msg).await;
                 }
-            } else {
-                let _ = client_clone.say(channel_name.clone(), msg.to_string()).await;
+                _ => {let _ = client_clone.say(channel_name.clone(), msg.to_string()).await;}
             }
         }
     });

@@ -70,6 +70,13 @@ pub async fn handle_insert(
                 );
                 app_state.logs.push(self_log);
 
+                if app_state.logs.len() > 100 {
+                    app_state.logs.remove(0);
+                }
+                if app_state.input_text == "/clear" {
+                    app_state.logs.clear();
+                }
+
                 app_state.input_text.clear();
             }
             app_state.mode = InputMode::Normal;
@@ -79,9 +86,10 @@ pub async fn handle_insert(
 }
 
 
-pub fn handle_command(
+pub async fn handle_command(
     key: KeyEvent,
-    app_state: &mut AppState
+    app_state: &mut AppState,
+    narrowcast_tx: mpsc::Sender<String>
 ) -> bool {
     match key.code {
         KeyCode::Esc => {
@@ -95,12 +103,15 @@ pub fn handle_command(
         }
         KeyCode::Enter => {
             match app_state.input_text.as_str() {
-                "q" => return false,
-                _ => {
-                    app_state.input_text.clear();
-                    app_state.mode = InputMode::Normal;
+                "q" | "quit" => return false,
+                "clear" => {
+                    let _ = narrowcast_tx.send("/clear".to_string()).await;
+                    app_state.logs.clear()
                 }
+                _ => {}
             }
+            app_state.input_text.clear();
+            app_state.mode = InputMode::Normal;
         }
         _ => (),
     }
@@ -134,7 +145,7 @@ pub async fn handle_key(
             true
         } 
         InputMode::Command => {
-            handle_command(key, app_state)
+            handle_command(key, app_state, narrowcast_tx).await
         }
     }
 }
