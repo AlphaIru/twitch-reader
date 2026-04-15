@@ -13,7 +13,7 @@ use twitch_irc::{
     SecureTCPTransport,
     TwitchIRCClient,
     login::StaticLoginCredentials,
-    message::ServerMessage
+    message::{ServerMessage, IRCMessage},
 };
 use tokio::sync::{broadcast, mpsc, oneshot};
 
@@ -113,7 +113,17 @@ pub async fn run_twitch_listener(
 
     tokio::spawn(async move {
         while let Some(msg_to_send) = narrowcast_rx.recv().await {
-            let _ = client_clone.say(channel_name.clone(), msg_to_send).await;
+            let msg = msg_to_send.trim();
+
+            if msg.starts_with('/') {
+                let raw_command = format!("PRIVMSG #{} :{}", channel_name, msg);
+
+                if let Ok(irc_msg) = IRCMessage::parse(&raw_command) {
+                    let _ = client_clone.send_message(irc_msg).await;
+                }
+            } else {
+                let _ = client_clone.say(channel_name.clone(), msg.to_string()).await;
+            }
         }
     });
 
@@ -129,7 +139,7 @@ pub async fn run_twitch_listener(
     let mut config_tx_opt = Some(config_tx);
 
     while let Some(message) = incoming_messages.recv().await {
-        
+
         match &message {
             ServerMessage::GlobalUserState(state) => {
                 if let Some(tx) = config_tx_opt.take() {
@@ -141,6 +151,7 @@ pub async fn run_twitch_listener(
                     let _ = tx.send((my_name, my_color));
                 }
             }
+            
 
             ServerMessage::Join(msg) => {
                 tx.send(Message::DM {
@@ -157,14 +168,14 @@ pub async fn run_twitch_listener(
                 tx.send(Message::DM {
                     username: "[SYSTEM]".to_string(),
                     user_id: "0".to_string(),
-                    msg: format!("Noice from Twitch: {}", msg.message_text),
+                    msg: format!("Notice from Twitch: {}", msg.message_text),
                     color: "#FFFF66".to_string(),
                     is_mod: false,
                     is_broadcaster: false,
                 }).await.unwrap();
             }
-            
-           _ => {} 
+
+            _ => {} 
         }
 
         if let ServerMessage::Privmsg(message) = message {
@@ -178,7 +189,14 @@ pub async fn run_twitch_listener(
             let is_broadcaster = message.badges.iter().any(|badge| badge.name == "broadcaster");
 
             let _ = tx.send(Message::DM {
-                username: message.sender.login.clone(),
+                username: if message.sender.name.is_empty()
+                { 
+                    message.sender.login.clone() 
+                }
+                else
+                {
+                    message.sender.name.clone()
+                },
                 user_id: message.sender.id,
                 msg: message.message_text.clone(),
                 color,

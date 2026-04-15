@@ -23,8 +23,19 @@ pub fn render_chat_log(
     app_state: &AppState
 ) {
     let chat_height = chat_area.height.saturating_sub(2) as usize;
-    let display_start = app_state.logs.len().saturating_sub(chat_height);
-    let visible_logs = &app_state.logs[display_start..];
+    let total_logs = app_state.logs.len();
+
+    let max_scroll = total_logs.saturating_sub(chat_height);
+    let effective_offset = (app_state.scroll_offset as usize).min(max_scroll);
+
+    let display_end = total_logs.saturating_sub(effective_offset);
+    let display_start = display_end.saturating_sub(chat_height);
+
+    let visible_logs = if total_logs > 0 {
+        &app_state.logs[display_start..display_end]
+    } else {
+        &[]
+    };
 
     let items: Vec<ListItem> = get_items(visible_logs);
 

@@ -25,6 +25,15 @@ pub fn handle_normal(
             app_state.mode = InputMode::Command;
             app_state.input_text.clear();
         }
+        KeyCode::Char('k') | KeyCode::Up => {
+            app_state.scroll_offset = app_state.scroll_offset.saturating_add(1);
+        }
+        KeyCode::Char('j') | KeyCode::Down => {
+            app_state.scroll_offset = app_state.scroll_offset.saturating_sub(1);
+        }
+        KeyCode::Char('G') => {
+            app_state.scroll_offset = 0;
+        }
         KeyCode::Char('h') => {
             if ! app_state.show_help {
                 app_state.show_help = true;

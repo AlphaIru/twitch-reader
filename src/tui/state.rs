@@ -19,7 +19,10 @@ pub struct AppState {
     pub input_text: String,
     pub mode: InputMode,
     pub logs: Vec<String>,
+
     pub show_help: bool,
+
+    pub scroll_offset: u16,
 
     pub my_name: String,
     pub my_color: String,
@@ -31,7 +34,10 @@ impl AppState {
         Self {
             input_text: String::new(),
             mode: InputMode::Normal,
+            
             logs: Vec::new(),
+            scroll_offset: 0,
+
             show_help: false,
             
             my_name: "You".to_string(),
@@ -41,7 +47,7 @@ impl AppState {
 
     pub fn push_log(&mut self, log: String) {
         self.logs.push(log);
-        if self.logs.len() > 100 {
+        if self.logs.len() > 250 {
             self.logs.remove(0);
         }
     }
