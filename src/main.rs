@@ -17,6 +17,7 @@ use dotenvy::dotenv;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
+mod auth;
 mod twitch;
 mod tui;
 
@@ -35,6 +36,8 @@ pub struct ChatPayload {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
+
+    let config = auth::get_or_auth().await?;
 
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
