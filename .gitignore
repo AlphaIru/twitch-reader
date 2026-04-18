@@ -21,6 +21,15 @@ target
 #.idea/
 
 .env
+.venv
+env
+venv
+
+# Vocab list.
 unknown.csv
+
 target/
 open_jtalk/
+
+auth.toml
+.auth.toml

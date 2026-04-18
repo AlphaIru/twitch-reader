@@ -1,7 +1,7 @@
 //! AlphaIru
 //! Twitch Reader
 //!
-//! twitch.rs
+//! twitch/handlers.rs
 //! 
 //! This is the module for Twitch API related functions,
 //! and this one handles the server messages
@@ -51,7 +51,24 @@ pub fn handle_server_message(
                 })
             }
 
+            ServerMessage::Privmsg(msg) => {
+                Some(Message::DM {
+                    username: if msg.sender.name.is_empty() {
+                        msg.sender.login.clone()
+                    } else {
+                        msg.sender.name.clone()
+                    },
+                    user_id: msg.sender.id.clone(),
+                    msg: msg.message_text.clone(),
+                    color: msg.name_color
+                        .as_ref()
+                        .map(|c| c.to_string())
+                        .unwrap_or_else(|| "#FFFFFF".to_string()),
+                    is_mod: msg.badges.iter().any(|b| b.name == "moderator"),
+                    is_broadcaster: msg.badges.iter().any(|b| b.name == "broadcaster"),
+                })
+            }
             _ => None
-        }
+    }
 
 }

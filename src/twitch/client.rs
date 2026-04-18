@@ -1,7 +1,7 @@
 //! AlphaIru
 //! Twitch Reader
 //!
-//! twitch.rs
+//! twitch/client.rs
 //! 
 //! This is the module for Twitch API related functions,
 //! and this one handles the loops
@@ -58,7 +58,7 @@ pub async fn run_twitch_listener(
     });
 
     while let Some(message) = incoming_messages.recv().await {
-        if let Some(msg) = handle_server_message(message,&mut config_tx) {
+        if let Some(msg) = handle_server_message(message, &mut config_tx) {
             let _ = tx.send(msg).await;
         }
     }

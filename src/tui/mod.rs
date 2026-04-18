@@ -24,7 +24,7 @@ pub use state::AppState;
 pub async fn run_tui (
     broadcast_tx: broadcast::Sender<ChatPayload>,
     narrowcast_tx: mpsc::Sender<String>,
-    config_rx: oneshot::Receiver<(String, String)>,
+    mut config_rx: oneshot::Receiver<(String, String)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     
     crossterm::terminal::enable_raw_mode()?;
@@ -44,13 +44,24 @@ pub async fn run_tui (
 
     let mut state = AppState::new();
     let mut broadcast_rx = broadcast_tx.subscribe();
+    let mut config_loaded = false;
 
-    if let Ok((name, color)) = config_rx.await {
-        state.my_name = name;
-        state.my_color = color;
-    }
+    loop 
+    {
+        if !config_loaded {
+            match config_rx.try_recv() {
+                Ok((name, color)) => {
+                    state.my_name = name;
+                    state.my_color = color;
+                    config_loaded = true;
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
+                Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+                    config_loaded = true;
+                }
+            }
+        }
 
-    loop {
         while let Ok(payload) = broadcast_rx.try_recv() {
             // state.push_log(format!("{}: {}", payload.username, payload.msg));
 

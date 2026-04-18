@@ -5,8 +5,10 @@ VERBOSE_LOG=false
 
 # ---------------------------------
 
-# Note: This is your twitch id not your bot's id
-TWITCH_CLIENT_ID=your_client_id
+TWITCH_USERNAME=[Your Twitch login name]
+TWITCH_CLIENT_ID=[BOT ID]
+TWITCH_CLIENT_SECRET=[BOT SECRET]
+TWITCH_REDIRECT_URI=http://localhost:3000
+AUTH_FILE="./auth.toml"
 
-# Note: do not put "oauth://" or "https://"
-TWITCH_CLIENT_SECRET=your_client_secret
+

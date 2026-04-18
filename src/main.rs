@@ -31,18 +31,16 @@ pub struct ChatPayload {
     pub is_broadcaster: bool,
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
 
-    let config = auth::get_or_auth().await?;
 
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
-    let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
-        .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
+
+    let oauth_token = auth::authenticate().await?.access_token;
 
     let (config_tx, config_rx) = oneshot::channel::<(String, String)>();
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
@@ -50,12 +48,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     twitch::connect(
         username.clone(),
-        oauth_token.clone(),
+        oauth_token,
         broadcast_tx.clone(),
         narrowcast_rx,
         Some(config_tx)
     );
-
 
     tui::run_tui(broadcast_tx, narrowcast_tx, config_rx).await?;
 

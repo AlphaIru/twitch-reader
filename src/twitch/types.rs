@@ -1,7 +1,7 @@
 //! AlphaIru
 //! Twitch Reader
 //!
-//! twitch.rs
+//! twitch/types.rs
 //! 
 //! This is the module for Twitch API related functions
 //! and this one handles the types
