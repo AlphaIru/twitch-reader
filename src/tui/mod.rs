@@ -10,21 +10,21 @@
 use std::time::Duration;
 use crossterm::event::{self, Event};
 
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc};
 
-use crate::ChatPayload;
+use crate::twitch::types::{ChatPayload, Outgoing};
 
 mod ui;
 mod events;
 pub mod state;
 
 pub use state::AppState;
-
+pub use crate::helix::user::BroadcasterProfile;
 
 pub async fn run_tui (
     broadcast_tx: broadcast::Sender<ChatPayload>,
-    narrowcast_tx: mpsc::Sender<String>,
-    mut config_rx: oneshot::Receiver<(String, String)>,
+    narrowcast_tx: mpsc::Sender<Outgoing>,
+    broadcaster_profile: BroadcasterProfile,
 ) -> Result<(), Box<dyn std::error::Error>> {
     
     crossterm::terminal::enable_raw_mode()?;
@@ -35,7 +35,6 @@ pub async fn run_tui (
 
     let _ = broadcast_tx.send(ChatPayload {
         username: "[SYSTEM]".to_string(),
-        user_id: "0".to_string(),
         msg: "Twitch Reader System started.".to_string(),
         color: "#FFFF66".to_string(),
         ..Default::default()
@@ -44,24 +43,11 @@ pub async fn run_tui (
 
     let mut state = AppState::new();
     let mut broadcast_rx = broadcast_tx.subscribe();
-    let mut config_loaded = false;
+
+    state.my_profile = broadcaster_profile;
 
     loop 
     {
-        if !config_loaded {
-            match config_rx.try_recv() {
-                Ok((name, color)) => {
-                    state.my_name = name;
-                    state.my_color = color;
-                    config_loaded = true;
-                }
-                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
-                Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
-                    config_loaded = true;
-                }
-            }
-        }
-
         while let Ok(payload) = broadcast_rx.try_recv() {
             // state.push_log(format!("{}: {}", payload.username, payload.msg));
 

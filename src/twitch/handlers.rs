@@ -7,28 +7,13 @@
 //! and this one handles the server messages
 //!
 
-use tokio::sync::oneshot;
 use twitch_irc::message::ServerMessage;
 use crate::twitch::types::Message;
 
 pub fn handle_server_message(
     message: ServerMessage,
-    config_tx_opt: &mut Option<oneshot::Sender<(String, String)>>,
 ) -> Option<Message> {
     match &message {
-            ServerMessage::GlobalUserState(state) => {
-                if let Some(tx) = config_tx_opt.take() {
-                    let my_name = state.user_name.clone();
-                    let my_color = state.name_color.as_ref()
-                        .map(|c| c.to_string())
-                        .unwrap_or_else(|| "#FFFFFF".to_string());
-
-                    let _ = tx.send((my_name, my_color));
-                }
-                None
-            }
-            
-
             ServerMessage::Join(msg) => {
                 Some(Message::DM {
                     username: "[SYSTEM]".to_string(),

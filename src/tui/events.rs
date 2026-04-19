@@ -11,7 +11,7 @@ use tokio::sync::mpsc;
 
 use crossterm::event::{KeyCode, KeyEvent};
 use crate::tui::state::{AppState, InputMode};
-
+use crate::twitch::types::Outgoing;
 
 pub fn handle_normal(
     key: KeyEvent,
@@ -48,10 +48,11 @@ pub fn handle_normal(
 pub async fn handle_insert(
     key: KeyEvent,
     app_state: &mut AppState,
-    narrowcast_tx: mpsc::Sender<String>
+    narrowcast_tx: mpsc::Sender<Outgoing>
 ) {
     match key.code {
         KeyCode::Esc => {
+            app_state.input_text.clear();
             app_state.mode = InputMode::Normal;
         }
         KeyCode::Char(c) => {
@@ -62,21 +63,19 @@ pub async fn handle_insert(
         }
         KeyCode::Enter => {
             if !app_state.input_text.is_empty() {
-                let _ = narrowcast_tx.send(app_state.input_text.clone()).await;
+                let text = app_state.input_text.trim();
+                let _ = narrowcast_tx.send(Outgoing::Chat(text.to_string().clone())).await;
                 
                 let self_log = format!(
                     "{}|false|true|{}: {}",
-                    app_state.my_color,
-                    app_state.my_name,
+                    app_state.my_profile.color,
+                    app_state.my_profile.display_name,
                     app_state.input_text
                 );
                 app_state.logs.push(self_log);
 
                 if app_state.logs.len() > 100 {
                     app_state.logs.remove(0);
-                }
-                if app_state.input_text == "/clear" {
-                    app_state.logs.clear();
                 }
 
                 app_state.input_text.clear();
@@ -91,10 +90,11 @@ pub async fn handle_insert(
 pub async fn handle_command(
     key: KeyEvent,
     app_state: &mut AppState,
-    narrowcast_tx: mpsc::Sender<String>
+    narrowcast_tx: mpsc::Sender<Outgoing>
 ) -> bool {
     match key.code {
         KeyCode::Esc => {
+            app_state.input_text.clear();
             app_state.mode = InputMode::Normal;
         }
         KeyCode::Char(c) => {
@@ -107,7 +107,7 @@ pub async fn handle_command(
             match app_state.input_text.as_str() {
                 "q" | "quit" => return false,
                 "clear" => {
-                    let _ = narrowcast_tx.send("/clear".to_string()).await;
+                    let _ = narrowcast_tx.send(Outgoing::Clear).await;
                     app_state.logs.clear()
                 }
                 _ => {}
@@ -125,7 +125,7 @@ pub async fn handle_command(
 pub async fn handle_key(
     key: KeyEvent,
     app_state: &mut AppState,
-    narrowcast_tx: mpsc::Sender<String>
+    narrowcast_tx: mpsc::Sender<Outgoing>
 ) -> bool {
     if app_state.show_help {
         if let KeyCode::Char('q') | KeyCode::Char('h') | KeyCode::Esc = key.code {

@@ -25,6 +25,7 @@ use twitch_api::twitch_oauth2::{
     Scope::{
         ChatRead,
         ChatEdit,
+        ModeratorManageChatMessages,
     },
     url::Url,
     UserTokenBuilder,
@@ -51,7 +52,8 @@ pub async fn get_token() -> Result<(String, String), Box<dyn std::error::Error>>
     .force_verify(true)
     .set_scopes(vec![
         ChatRead,
-        ChatEdit
+        ChatEdit,
+        ModeratorManageChatMessages,
     ]);
 
     let (url, _) = builder.generate_url();

@@ -7,6 +7,8 @@
 //! states.
 //!     
 
+use crate::tui::BroadcasterProfile;
+
 
 pub enum InputMode {
     Normal,
@@ -24,8 +26,7 @@ pub struct AppState {
 
     pub scroll_offset: u16,
 
-    pub my_name: String,
-    pub my_color: String,
+    pub my_profile: BroadcasterProfile,
 }
 
 
@@ -39,9 +40,13 @@ impl AppState {
             scroll_offset: 0,
 
             show_help: false,
-            
-            my_name: "You".to_string(),
-            my_color: "#FFFFFF".to_string(),
+        
+            my_profile: BroadcasterProfile {
+                id: "0".to_string(),
+                login: "you".to_string(),
+                display_name: "You".to_string(),
+                color: "#FFFFFF".to_string(),
+            },
         }
     }
 

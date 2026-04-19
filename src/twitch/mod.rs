@@ -11,16 +11,20 @@ pub mod types;
 pub mod handlers;
 pub mod client;
 
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc};
+use twitch_api::twitch_oauth2::UserToken;
+
 use crate::ChatPayload;
-use self::types::Message;
+use crate::CommandConfig;
+use self::types::{Message, Outgoing};
 
 pub fn connect(
     username: String,
     oauth_token: String,
+    helix_token: UserToken,
     broadcast_tx: broadcast::Sender<ChatPayload>,
-    narrowcast_rx: mpsc::Receiver<String>,
-    config_tx: Option<oneshot::Sender<(String, String)>>,
+    narrowcast_rx: mpsc::Receiver<Outgoing>,
+    command_config: CommandConfig,
 ) {
     let (twitch_tx, mut twitch_rx) = mpsc::channel::<Message>(100);
 
@@ -28,9 +32,10 @@ pub fn connect(
         client::run_twitch_listener(
             username,
             oauth_token,
+            helix_token,
             twitch_tx,
             narrowcast_rx,
-            config_tx
+            command_config,
         ).await;
     });
 

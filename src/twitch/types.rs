@@ -21,6 +21,25 @@ pub enum Message {
     },
 }
 
+
+#[derive(Clone, Debug, Default)]
+pub struct ChatPayload {
+    pub username: String,
+    pub user_id: String,
+    pub msg: String,
+    pub color: String,
+    pub is_mod: bool,
+    pub is_broadcaster: bool,
+}
+
+
+#[derive(Debug, Clone)]
+pub enum Outgoing {
+    Chat(String),
+    Clear,
+}
+
+
 impl Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

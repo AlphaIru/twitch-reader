@@ -15,9 +15,8 @@
 use std::env;
 use dotenvy::dotenv;
 
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc};
 
-use twitch_api::helix::HelixClient;
 use twitch_api::twitch_oauth2::{AccessToken, UserToken};
 
 mod auth;
@@ -25,17 +24,19 @@ mod helix;
 mod twitch;
 mod tui;
 
-use auth::authenticate;
 
-#[derive(Clone, Debug, Default)]
-pub struct ChatPayload {
-    pub username: String,
-    pub user_id: String,
-    pub msg: String,
-    pub color: String,
-    pub is_mod: bool,
-    pub is_broadcaster: bool,
-}
+use auth::authenticate;
+use helix::{
+    user::get_broadcaster_profile,
+    types::CommandConfig
+};
+use twitch::types::{
+    ChatPayload,
+    Outgoing
+};
+
+use crate::helix::client::make_helix_client;
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,39 +48,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let oauth_token = authenticate().await?.access_token;
 
-    let client: HelixClient<reqwest::Client> = HelixClient::default();
-    let token = UserToken::from_token(
+    let client = make_helix_client();
+    let helix_token = UserToken::from_token(
         &client,
         AccessToken::from(oauth_token.clone()),
-    )
-    .await?;
+    ).await?;
 
-    let user = client
-        .get_user_from_login(&username, &token)
-        .await?
-        .ok_or("User not found")?;
+    let broadcaster_profile = get_broadcaster_profile(
+        &client,
+        &helix_token,
+        &username
+    ).await?;
 
-    println!("Helix OK!");
-    println!("id          = {}", user.id);
-    println!("login       = {}", user.login);
-    println!("displayname = {}", user.display_name);
+    let command_config = CommandConfig {
+        broadcaster_login: broadcaster_profile.login.clone(),
+        broadcaster_id: broadcaster_profile.id.clone(),
+        moderator_id: helix_token.user_id.to_string(),
+    };
 
-    let (config_tx, config_rx) = oneshot::channel::<(String, String)>();
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
-    let (narrowcast_tx, narrowcast_rx) = mpsc::channel::<String>(100);
+    let (narrowcast_tx, narrowcast_rx) = mpsc::channel::<Outgoing>(100);
 
     twitch::connect(
         username.clone(),
         oauth_token,
+        helix_token,
         broadcast_tx.clone(),
         narrowcast_rx,
-        Some(config_tx)
+        command_config,
     );
 
-    // tui::run_tui(broadcast_tx, narrowcast_tx, config_rx).await?;
+    tui::run_tui(
+        broadcast_tx,
+        narrowcast_tx,
+        broadcaster_profile
+    ).await?;
 
     // Debug
-    tokio::signal::ctrl_c().await?;
+    // tokio::signal::ctrl_c().await?;
 
     Ok(())
 }
