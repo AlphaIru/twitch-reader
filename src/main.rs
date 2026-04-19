@@ -17,9 +17,15 @@ use dotenvy::dotenv;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 
+use twitch_api::helix::HelixClient;
+use twitch_api::twitch_oauth2::{AccessToken, UserToken};
+
 mod auth;
+mod helix;
 mod twitch;
 mod tui;
+
+use auth::authenticate;
 
 #[derive(Clone, Debug, Default)]
 pub struct ChatPayload {
@@ -36,11 +42,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
 
-
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
 
-    let oauth_token = auth::authenticate().await?.access_token;
+    let oauth_token = authenticate().await?.access_token;
+
+    let client: HelixClient<reqwest::Client> = HelixClient::default();
+    let token = UserToken::from_token(
+        &client,
+        AccessToken::from(oauth_token.clone()),
+    )
+    .await?;
+
+    let user = client
+        .get_user_from_login(&username, &token)
+        .await?
+        .ok_or("User not found")?;
+
+    println!("Helix OK!");
+    println!("id          = {}", user.id);
+    println!("login       = {}", user.login);
+    println!("displayname = {}", user.display_name);
 
     let (config_tx, config_rx) = oneshot::channel::<(String, String)>();
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
@@ -54,7 +76,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(config_tx)
     );
 
-    tui::run_tui(broadcast_tx, narrowcast_tx, config_rx).await?;
+    // tui::run_tui(broadcast_tx, narrowcast_tx, config_rx).await?;
+
+    // Debug
+    tokio::signal::ctrl_c().await?;
 
     Ok(())
 }

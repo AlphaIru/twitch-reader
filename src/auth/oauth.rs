@@ -19,7 +19,7 @@ use tiny_http::{
     Response,
     Server,
 };
-use twitch_oauth2::{
+use twitch_api::twitch_oauth2::{
     ClientId,
     ClientSecret,
     Scope::{

@@ -33,3 +33,5 @@ open_jtalk/
 
 auth.toml
 .auth.toml
+
+*.zip

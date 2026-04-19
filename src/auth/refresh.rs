@@ -10,7 +10,7 @@
 
 use std::env;
 
-use twitch_oauth2::{
+use twitch_api::twitch_oauth2::{
     ClientId,
     ClientSecret,
     RefreshToken,
