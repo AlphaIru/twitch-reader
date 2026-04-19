@@ -26,7 +26,9 @@ pub fn handle_normal(
             app_state.input_text.clear();
         }
         KeyCode::Char('k') | KeyCode::Up => {
-            app_state.scroll_offset = app_state.scroll_offset.saturating_add(1);
+            let max_offset = app_state.logs.len().saturating_sub(1) as u16;
+            app_state.scroll_offset = (app_state.scroll_offset + 1).min(max_offset);
+            // app_state.scroll_offset = app_state.scroll_offset.saturating_add(1);
         }
         KeyCode::Char('j') | KeyCode::Down => {
             app_state.scroll_offset = app_state.scroll_offset.saturating_sub(1);
