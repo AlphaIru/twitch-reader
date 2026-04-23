@@ -7,8 +7,26 @@
 //! with the main tui. 
 //!     
 
-use std::time::Duration;
-use crossterm::event::{self, Event};
+use std::{
+    io::stdout,
+    time::Duration,
+};
+
+use crossterm::{
+    cursor::Show,
+    execute,
+    event::{self, Event},
+    terminal::{
+        enable_raw_mode,
+        disable_raw_mode,
+        EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
+};
+use ratatui::{
+    backend::CrosstermBackend,
+    Terminal,
+};
 
 use tokio::sync::{broadcast, mpsc};
 
@@ -27,11 +45,15 @@ pub async fn run_tui (
     broadcaster_profile: BroadcasterProfile,
 ) -> Result<(), Box<dyn std::error::Error>> {
     
-    crossterm::terminal::enable_raw_mode()?;
-    let mut stdout = std::io::stdout();
-    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
-    let backend = ratatui::backend::CrosstermBackend::new(stdout);
-    let mut terminal = ratatui::Terminal::new(backend)?;
+    enable_raw_mode()?;
+    let mut tui_stdout = stdout();
+    execute!(
+        tui_stdout,
+        Show,
+        EnterAlternateScreen
+    )?;
+    let backend = CrosstermBackend::new(tui_stdout);
+    let mut terminal = Terminal::new(backend)?;
 
     let _ = broadcast_tx.send(ChatPayload {
         username: "[SYSTEM]".to_string(),
@@ -49,20 +71,29 @@ pub async fn run_tui (
     loop 
     {
         while let Ok(payload) = broadcast_rx.try_recv() {
-            // state.push_log(format!("{}: {}", payload.username, payload.msg));
-
-            let log_entry = format!(
-                "{}|{}|{}|{}: {}",
-                payload.color,
-                payload.is_mod,
-                payload.is_broadcaster,
-                payload.username,
-                payload.msg
-            );
-            state.push_log(log_entry);
+            state.push_log(payload);
         }
 
-        terminal.draw(|f| ui::render(f, &state))?;
+        terminal.draw(|f| {
+            let input_rect = ui::render(f, &state);
+
+            match state.mode {
+                state::InputMode::Insert => {
+                    f.set_cursor_position((
+                        input_rect.x + 1 + state.input_text.chars().count() as u16,
+                        input_rect.y + 1
+                    ));
+                }
+                state::InputMode::Command => {
+                    f.set_cursor_position((
+                        input_rect.x + 2 + state.input_text.chars().count() as u16,
+                        input_rect.y + 1
+                    ));
+                }
+                state::InputMode::Normal => {}
+            }
+        
+        })?;
 
         if !event::poll(Duration::from_millis(50))? {
             continue;
@@ -77,9 +108,13 @@ pub async fn run_tui (
             break;
         }
     }
-    
-    crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
-    crossterm::terminal::disable_raw_mode()?;
+   
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        Show,
+        LeaveAlternateScreen
+    )?;
 
     Ok(())
 }

@@ -15,6 +15,8 @@ use ratatui::{
     widgets::ListItem,
 };
 
+use crate::twitch::types::ChatPayload;
+
 
 pub fn parse_hex_color(hex: &str) -> Color {
     if hex.starts_with('#') && hex.len() == 7
@@ -68,36 +70,37 @@ pub fn create_header<'a>(title: &'a str) -> Line<'a> {
 
 
 pub fn get_items<'a>(
-    visible_logs: &'a[String]
+    visible_logs: &'a[ChatPayload],
+    display_start: usize,
+    selected_index: usize,
 ) -> Vec<ListItem<'a>> {
-    let items: Vec<ListItem> = visible_logs.iter().map(|log| {
-        let parts: Vec<&str> = log.splitn(4, '|').collect();
-        if parts.len() == 4 {
-            let color_hex = parts[0];
-            let is_mod = parts[1] == "true";
-            let is_broadcaster = parts[2] == "true";
+    visible_logs.iter().enumerate().map(|(i, log)| {
+        let absolute_index = display_start + i;
+        let user_color = parse_hex_color(&log.color);
 
-            if let Some((name, msg)) = parts[3].split_once(": ") {
-                let user_color = parse_hex_color(color_hex);
-                let mut spans = vec![];
+        let mut spans = vec![];
 
-                if is_broadcaster {
-                    spans.push(Span::styled("[Broadcaster] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
-                }
-                if is_mod {
-                    spans.push(Span::styled("[Mod] ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
-                }
-
-                spans.push(Span::styled(format!("{}: ", name), Style::default().fg(user_color).add_modifier(Modifier::BOLD)));
-                spans.push(Span::raw(msg));
-
-                return ListItem::new(Line::from(spans));
-            }
+        if absolute_index == selected_index {
+            spans.push(Span::styled("> ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+        } else {
+            spans.push(Span::raw("  "));
         }
-        ListItem::new(Span::raw(log))
-    }).collect();
 
-    items
+        if log.is_broadcaster {
+            spans.push(Span::styled("[Broadcaster] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        }
+        if log.is_mod {
+            spans.push(Span::styled("[Mod] ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+        }
+
+        spans.push(Span::styled(
+            format!("{}: ", log.username),
+            Style::default().fg(user_color).add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::raw(log.msg.clone()));
+
+        ListItem::new(Line::from(spans))
+    }).collect()
+
 }
-
 

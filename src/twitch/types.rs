@@ -14,8 +14,13 @@ pub enum Message {
     DM {
         username: String,
         user_id: String,
+        
+        message_id: Option<String>,
+        sent_ts: Option<i64>,
+
         msg: String,
         color: String,
+        
         is_mod: bool,        
         is_broadcaster: bool,
     },
@@ -26,8 +31,13 @@ pub enum Message {
 pub struct ChatPayload {
     pub username: String,
     pub user_id: String,
+
+    pub message_id: Option<String>,
+    pub sent_ts: Option<i64>,
+
     pub msg: String,
     pub color: String,
+
     pub is_mod: bool,
     pub is_broadcaster: bool,
 }
@@ -46,15 +56,21 @@ impl Display for Message {
             Message::DM {
                 username,
                 user_id,
+                message_id,
+                sent_ts,
                 msg,
                 color,
                 is_mod,
                 is_broadcaster
             } => write!(
                 f,
-                "username: {} user_id: {} msg: {} color: {} is_mod: {} is_broadcaster: {}",
+                "username: {} user_id: {} msg: {} message_id: {} sent_ts: {} color: {} is_mod: {} is_broadcaster: {}",
                 username,
                 user_id,
+                message_id.as_deref().unwrap_or("-"),
+                sent_ts
+                    .map(|ts| ts.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
                 msg,
                 color,
                 is_mod,

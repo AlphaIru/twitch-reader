@@ -1,0 +1,32 @@
+- means done.
+
+- :clear
+:delete <message_id>
+:timeout <user> <seconds> [reason]
+:ban <user> [reason]
+:unban <user>
+:warn <user> <reason>
+
+:slow [seconds]
+:slowoff
+:followers [duration]
+:followersoff
+:subscribers
+:subscribersoff
+:emoteonly
+:emoteonlyoff
+:uniquechat
+:uniquechatoff
+
+:announce <message>
+:raid <channel>
+:unraid
+
+:mod <user>
+:unmod <user>
+:vip <user>
+:unvip <user>
+
+:poll ...
+:prediction ...
+:marker [description]

@@ -66,6 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         moderator_id: helix_token.user_id.to_string(),
     };
 
+
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
     let (narrowcast_tx, narrowcast_rx) = mpsc::channel::<Outgoing>(100);
 

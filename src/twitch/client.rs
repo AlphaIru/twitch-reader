@@ -19,6 +19,7 @@ use twitch_api::twitch_oauth2::UserToken;
 use crate::twitch::types::{Message, Outgoing};
 use crate::twitch::handlers::handle_server_message;
 use crate::helix::{
+    chat::send_chat_message,
     moderation::clear_chat,
     types::CommandConfig,
 };
@@ -41,8 +42,8 @@ pub async fn run_twitch_listener(
 
     client.join(username.clone()).expect("Failed to join channel");
 
-    let client_clone = client.clone();
-    let channel_name = username.clone();
+    // let client_clone = client.clone();
+    // let channel_name = username.clone();
 
     tokio::spawn(async move {
         while let Some(outgoing) = narrowcast_rx.recv().await {
@@ -61,9 +62,27 @@ pub async fn run_twitch_listener(
                     if msg.is_empty() {
                         continue;
                     }
-                    let _ = client_clone
-                        .say(channel_name.clone(), msg.to_string())
-                        .await;
+                    match send_chat_message(
+                        &command_config.broadcaster_id,
+                        &command_config.moderator_id,
+                        msg,
+                        None,
+                        &helix_token
+                    ).await {
+                        Ok(result) => {
+                            if !result.is_sent
+                                && let Some(reason) = result.drop_reason {
+                                    eprintln!(
+                                        "Failed to send message: {} ({})",
+                                        reason.message,
+                                        reason.code,
+                                    );
+                                }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to send message via helix: {}", e);
+                        }
+                    }
                 }
             }
         }

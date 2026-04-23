@@ -7,12 +7,11 @@
 //! the chat log of the tui.
 //!     
 
-
 use ratatui::{
     Frame,
     layout::Rect
 };
-use ratatui::widgets::{Block, Borders, List, ListItem};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 
 use crate::tui::state::AppState;
 use crate::tui::ui::utils::get_items;
@@ -37,7 +36,11 @@ pub fn render_chat_log(
         &[]
     };
 
-    let items: Vec<ListItem> = get_items(visible_logs);
+    let items: Vec<ListItem> = get_items(
+        visible_logs,
+        display_start,
+        app_state.selected_index,
+    );
 
     let log_list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title(" Chat Log "));
@@ -45,3 +48,31 @@ pub fn render_chat_log(
 
 }
 
+pub fn render_details(
+    f: &mut Frame,
+    details_area: Rect,
+    app_state: &AppState
+) {
+    
+    let text =  if let Some(selected) = app_state.logs.get(app_state.selected_index) {
+        let chat_time = selected
+            .sent_ts
+            .and_then(chrono::DateTime::<chrono::Utc>::from_timestamp_millis)
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S%.3f UTC").to_string())
+            .unwrap_or_else(|| "-".to_string());
+
+        format!(
+            "user_id: {}\nmessage_id: {}\nsent_ts: {}",
+            selected.user_id,
+            selected.message_id.as_deref().unwrap_or("-"),
+            chat_time
+        )
+    } else {
+        "No message selected.".to_string()
+    };
+
+    let details = Paragraph::new(text)
+        .block(Block::default().borders(Borders::ALL).title(" Details "));
+    f.render_widget(details, details_area);
+
+}

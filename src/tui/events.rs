@@ -25,22 +25,28 @@ pub fn handle_normal(
             app_state.mode = InputMode::Command;
             app_state.input_text.clear();
         }
-        KeyCode::Char('k') | KeyCode::Up => {
-            let max_offset = app_state.logs.len().saturating_sub(1) as u16;
-            app_state.scroll_offset = (app_state.scroll_offset + 1).min(max_offset);
+        KeyCode::Char('D') => {
+            app_state.show_details = !app_state.show_details;
+        }
+        KeyCode::Char('k') | KeyCode::Up
+            if app_state.selected_index > 0 => {
+                app_state.selected_index -= 1;
+            }
+            // let max_offset = app_state.logs.len().saturating_sub(1) as u16;
+            // app_state.scroll_offset = (app_state.scroll_offset + 1).min(max_offset);
             // app_state.scroll_offset = app_state.scroll_offset.saturating_add(1);
-        }
-        KeyCode::Char('j') | KeyCode::Down => {
-            app_state.scroll_offset = app_state.scroll_offset.saturating_sub(1);
-        }
+        KeyCode::Char('j') | KeyCode::Down
+            if app_state.selected_index + 1 < app_state.logs.len() => {
+                app_state.selected_index += 1;
+            }
+            // app_state.scroll_offset = app_state.scroll_offset.saturating_sub(1);
         KeyCode::Char('G') => {
             app_state.scroll_offset = 0;
         }
-        KeyCode::Char('h') => {
-            if ! app_state.show_help {
+        KeyCode::Char('h')
+            if ! app_state.show_help => {
                 app_state.show_help = true;
             }
-        }
         _ => (),
     }
 }
@@ -63,20 +69,8 @@ pub async fn handle_insert(
         }
         KeyCode::Enter => {
             if !app_state.input_text.is_empty() {
-                let text = app_state.input_text.trim();
+                let text = app_state.input_text.trim().to_string();
                 let _ = narrowcast_tx.send(Outgoing::Chat(text.to_string().clone())).await;
-                
-                let self_log = format!(
-                    "{}|false|true|{}: {}",
-                    app_state.my_profile.color,
-                    app_state.my_profile.display_name,
-                    app_state.input_text
-                );
-                app_state.logs.push(self_log);
-
-                if app_state.logs.len() > 100 {
-                    app_state.logs.remove(0);
-                }
 
                 app_state.input_text.clear();
             }

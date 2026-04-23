@@ -43,10 +43,21 @@ pub fn connect(
     tokio::spawn(async move {
         while let Some(msg) = twitch_rx.recv().await {
             match msg {
-                Message::DM { username, user_id, msg, color, is_mod, is_broadcaster } => {
+                Message::DM {
+                    username,
+                    user_id,
+                    message_id,
+                    sent_ts,
+                    msg,
+                    color,
+                    is_mod,
+                    is_broadcaster
+                } => {
                     let _ = tx_for_payload.send(ChatPayload {
                         username,
                         user_id,
+                        message_id,
+                        sent_ts,
                         msg,
                         color,
                         is_mod,

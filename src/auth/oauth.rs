@@ -26,10 +26,13 @@ use twitch_api::twitch_oauth2::{
         ChatRead,
         ChatEdit,
         ModeratorManageChatMessages,
+        UserReadChat,
+        UserWriteChat,
     },
     url::Url,
     UserTokenBuilder,
 };
+
 
 
 pub async fn get_token() -> Result<(String, String), Box<dyn std::error::Error>> {
@@ -54,6 +57,8 @@ pub async fn get_token() -> Result<(String, String), Box<dyn std::error::Error>>
         ChatRead,
         ChatEdit,
         ModeratorManageChatMessages,
+        UserReadChat,
+        UserWriteChat,
     ]);
 
     let (url, _) = builder.generate_url();
