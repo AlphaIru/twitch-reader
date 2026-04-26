@@ -5,10 +5,21 @@ VERBOSE_LOG=false
 
 # ---------------------------------
 
+# Note: Your login name 
 TWITCH_USERNAME=[Your Twitch login name]
+
+# Note: This is your twitch id not your bot's id
 TWITCH_CLIENT_ID=[BOT ID]
+
+# Note: This is your twitch api client id
 TWITCH_CLIENT_SECRET=[BOT SECRET]
+
+# Note: Redirect URI after authorization
 TWITCH_REDIRECT_URI=http://localhost:3000
+
+
+# Note: Where these tokens are stored
 AUTH_FILE="./auth.toml"
+
 
 
