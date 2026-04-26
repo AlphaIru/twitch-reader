@@ -20,12 +20,16 @@ use tokio::sync::{broadcast, mpsc};
 use regex::Regex;
 
 use crate::ChatPayload;
-use crate::word_process::{
+
+pub mod voice_creation;
+pub mod word_process;
+
+use self::word_process::{
     clean_text,
     load_files,
     limit_length
 };
-use crate::voice_creation::speak;
+use self::voice_creation::speak;
 
 
 pub fn get_env_variables() -> (bool, usize, usize, String) {

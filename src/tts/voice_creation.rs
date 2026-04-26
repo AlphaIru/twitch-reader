@@ -48,7 +48,6 @@ pub async fn speak(text: String) -> bool {
         let std_stdout: Stdio = stdout.try_into().expect("Failed to get stdout");
 
         let status = Command::new("paplay")
-            .arg("--device=TwitchReader")
             .arg("--raw")                
             .arg("--channels=1")
             .arg("--rate=48000")

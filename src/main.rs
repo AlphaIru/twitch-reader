@@ -12,7 +12,13 @@
 //!
 
 
-use std::env;
+use std::{ 
+    env,
+    sync::{
+        Arc,
+        atomic::AtomicUsize
+    },
+};
 use dotenvy::dotenv;
 
 use tokio::sync::{broadcast, mpsc};
@@ -23,6 +29,8 @@ mod auth;
 mod helix;
 mod twitch;
 mod tui;
+
+mod tts;
 
 
 use auth::authenticate;
@@ -45,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
+    let enable_yomi = env::var("ENABLE_YOMI").unwrap_or_else(|_| "false".to_string()) == "true";
 
     let oauth_token = authenticate().await?.access_token;
 
@@ -78,6 +87,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         narrowcast_rx,
         command_config,
     );
+
+    if enable_yomi {
+        let rx_for_yomi = broadcast_tx.subscribe();
+        let tx_for_yomi = broadcast_tx.clone();
+        let voice_queue_counter = Arc::new(AtomicUsize::new(0));
+
+        tokio::spawn(async move {
+            tts::start_reading(
+                rx_for_yomi,
+                tx_for_yomi,
+                voice_queue_counter.clone()
+            ).await;
+        });
+    }
 
     tui::run_tui(
         broadcast_tx,

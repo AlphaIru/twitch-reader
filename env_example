@@ -8,11 +8,23 @@ ENABLE_YOMI=false
 
 # ---------------------------------
 
-# Note: This is your twitch id not your bot's id
-TWITCH_CLIENT_ID=your_client_id
+# Note: Your login name 
+TWITCH_USERNAME=your_login_name
 
-# Note: do not put "oauth://" or "https://"
-TWITCH_CLIENT_SECRET=your_client_secret
+# Note: This is your twitch id not your bot's id
+TWITCH_ClIENT_ID=your_twitch_id
+
+# Note: This is your twitch api client id
+TWITCH_CLIENT_ID=api_client_id
+
+# Note: This is your twitch api client secret
+TWITCH_CLIENT_SECRET=api_client_secret
+
+# Note: Redirect URI after authorization
+TWITCH_REDIRECT_URI=http://localhost:3000
+
+# Note: Where these tokens are stored
+AUTH_FILE="./auth.toml"
 
 # Note: This is where your bot get its dic
 OPEN_JTALK_DICT_PATH=/usr/share/open-jtalk/dic
