@@ -3,12 +3,23 @@
 # If you want a verbose log, set this to true
 VERBOSE_LOG=false
 
+# If you want to use the NicoNico HTML overlay, set this to true
+ENABLE_NICO=false
+
 # ---------------------------------
 
-TWITCH_USERNAME=[Your Twitch login name]
-TWITCH_CLIENT_ID=[BOT ID]
-TWITCH_CLIENT_SECRET=[BOT SECRET]
-TWITCH_REDIRECT_URI=http://localhost:3000
-AUTH_FILE="./auth.toml"
+# Note : Your login name
+TWITCH_USERNAME=your_username
 
+# Note : Your api id
+TWITCH_CLIENT_ID=
+
+# Note : Your api secret
+TWITCH_CLIENT_SECRET=
+
+# Note : Your redirect uri
+TWITCH_REDIRECT_URI=http://localhost:3000
+
+# Note : Your oauth token location
+AUTH_FILE="./auth.toml"
 

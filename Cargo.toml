@@ -20,4 +20,7 @@ crossterm = "0.29.0"
 ratatui = "0.30.0"
 chrono = "0.4.44"
 
+trie-rs = "0.4.2"
+axum = { version = "0.8.8", features = ["ws"] }
+
 
