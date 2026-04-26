@@ -3,6 +3,12 @@
 # If you want a verbose log, set this to true
 VERBOSE_LOG=false
 
+# If you want to use the Open_JTalk TTS, set this to true
+ENABLE_YOMI=false
+
+# If you want to use the NicoNico HTML overlay, set this to true
+ENABLE_NICO=false
+
 # ---------------------------------
 
 # Note: Your login name 
@@ -17,9 +23,6 @@ TWITCH_CLIENT_SECRET=[BOT SECRET]
 # Note: Redirect URI after authorization
 TWITCH_REDIRECT_URI=http://localhost:3000
 
-
 # Note: Where these tokens are stored
 AUTH_FILE="./auth.toml"
-
-
 

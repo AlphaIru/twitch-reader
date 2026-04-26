@@ -23,4 +23,5 @@ chrono = "0.4.44"
 
 trie-rs = "0.4.2"
 regex = "1.12.3"
+axum = { version = "0.8.8", features = ["ws"] }
 

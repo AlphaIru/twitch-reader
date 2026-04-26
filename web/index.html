@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twitch Danmaku Overlay</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="danmaku-container"></div>
+    <!-- Note that config.js only gets create after running the program. -->
+    <script src="config.js"></script>
+
+    <script>
+      if (typeof NICO_ADDR === "undefined") {
+        console.warn(
+          "Cannot find NICO_ADDR in config.js, using default value: 127.0.0.1:2578",
+        );
+        var NICO_ADDR = "127.0.0.1:2578";
+      }
+    </script>
+
+    <script src="script.js"></script>
+  </body>
+</html>

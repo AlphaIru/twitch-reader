@@ -31,6 +31,8 @@ mod twitch;
 mod tui;
 
 mod tts;
+mod nico;
+
 
 use auth::authenticate;
 use helix::{
@@ -53,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
     let enable_yomi = env::var("ENABLE_YOMI").unwrap_or_else(|_| "false".to_string()) == "true";
+    let enable_nico = env::var("ENABLE_NICO").unwrap_or_else(|_| "false".to_string()) == "true";
 
     let oauth_token = authenticate().await?.access_token;
 
@@ -98,6 +101,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tx_for_yomi,
                 voice_queue_counter.clone()
             ).await;
+        });
+    }
+
+    if enable_nico {
+        let tx_for_nico = broadcast_tx.clone();
+        tokio::spawn(async move {
+            nico::start_nico_server(tx_for_nico).await;
         });
     }
 
