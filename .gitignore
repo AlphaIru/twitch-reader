@@ -21,6 +21,8 @@ target
 #.idea/
 
 .env
+auth.toml
+.auth.toml
 unknown.csv
 target/
 open_jtalk/
