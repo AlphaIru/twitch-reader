@@ -18,7 +18,7 @@ use crate::tui::ui::utils::get_items;
 
 pub fn render_chat_log(
     f: &mut Frame,
-   chat_area: Rect,
+    chat_area: Rect,
     app_state: &AppState
 ) {
     let chat_height = chat_area.height.saturating_sub(2) as usize;

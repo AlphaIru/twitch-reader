@@ -86,6 +86,17 @@ pub fn get_items<'a>(
             spans.push(Span::raw("  "));
         }
 
+        let time_text = log
+            .sent_ts
+            .and_then(chrono::DateTime::<chrono::Utc>::from_timestamp_millis)
+            .map(|dt| dt.format("[%H:%M:%S] ").to_string())
+            .unwrap_or_else(|| "[--:--:--] ".to_string());
+
+        spans.push(Span::styled(
+                time_text,
+                Style::default().fg(Color::DarkGray),
+        ));
+
         if log.is_broadcaster {
             spans.push(Span::styled("[Broadcaster] ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
         }
@@ -94,8 +105,8 @@ pub fn get_items<'a>(
         }
 
         spans.push(Span::styled(
-            format!("{}: ", log.username),
-            Style::default().fg(user_color).add_modifier(Modifier::BOLD),
+                format!("{}: ", log.username),
+                Style::default().fg(user_color).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::raw(log.msg.clone()));
 
