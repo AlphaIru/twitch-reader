@@ -15,21 +15,27 @@
 use std::env;
 use dotenvy::dotenv;
 
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 
-mod nico;
+use twitch_api::twitch_oauth2::{AccessToken, UserToken};
+
+mod auth;
+mod helix;
 mod twitch;
 mod tui;
 
-#[derive(Clone, Debug, Default)]
-pub struct ChatPayload {
-    pub username: String,
-    pub user_id: String,
-    pub msg: String,
-    pub color: String,
-    pub is_mod: bool,
-    pub is_broadcaster: bool,
-}
+
+use auth::authenticate;
+use helix::{
+    user::get_broadcaster_profile,
+    types::CommandConfig
+};
+use twitch::types::{
+    ChatPayload,
+    Outgoing
+};
+
+use crate::helix::client::make_helix_client;
 
 
 #[tokio::main]
@@ -39,28 +45,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let username = env::var("TWITCH_USERNAME")
         .expect("Error: .env file not found or TWITCH_USERNAME must be set");
-    let oauth_token = env::var("TWITCH_OAUTH_TOKEN")
-        .expect("Error: .env file not found or TWITCH_OAUTH_TOKEN must be set");
-    let enable_nico = env::var("ENABLE_NICO").unwrap_or_else(|_| "false".to_string()) == "true";
+
+    let oauth_token = authenticate().await?.access_token;
+
+    let client = make_helix_client();
+    let helix_token = UserToken::from_token(
+        &client,
+        AccessToken::from(oauth_token.clone()),
+    ).await?;
+
+    let broadcaster_profile = get_broadcaster_profile(
+        &client,
+        &helix_token,
+        &username
+    ).await?;
+
+    let command_config = CommandConfig {
+        broadcaster_login: broadcaster_profile.login.clone(),
+        broadcaster_id: broadcaster_profile.id.clone(),
+        moderator_id: helix_token.user_id.to_string(),
+    };
 
 
     let (broadcast_tx, _) = broadcast::channel::<ChatPayload>(16);
+    let (narrowcast_tx, narrowcast_rx) = mpsc::channel::<Outgoing>(100);
 
     twitch::connect(
         username.clone(),
-        oauth_token.clone(),
-        broadcast_tx.clone()
+        oauth_token,
+        helix_token,
+        broadcast_tx.clone(),
+        narrowcast_rx,
+        command_config,
     );
 
-    if enable_nico {
-        let tx_for_nico = broadcast_tx.clone();
-        tokio::spawn(async move {
-            nico::start_nico_server(tx_for_nico).await;
-        });
-    }
+    tui::run_tui(
+        broadcast_tx,
+        narrowcast_tx,
+        broadcaster_profile
+    ).await?;
 
-
-    tui::run_tui(broadcast_tx)?;
+    // Debug
+    // tokio::signal::ctrl_c().await?;
 
     Ok(())
 }
